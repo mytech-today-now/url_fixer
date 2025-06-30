@@ -608,11 +608,13 @@ class URLTable {
             ${this.truncateUrl(url.replacementURL)}
           </a>
           <small class="confidence">Confidence: ${Math.round((url.replacementConfidence || 0) * 100)}%</small>
+          <input type="url" class="url-input-field replacement-input" placeholder="Enter replacement URL"
+                 value="${url.replacementURL}" data-url-id="${url.id}">
         </div>
       `;
     } else {
       return `
-        <input type="url" class="url-input-field" placeholder="Enter replacement URL" 
+        <input type="url" class="url-input-field" placeholder="Enter replacement URL"
                value="${url.newURL || ''}" data-url-id="${url.id}">
       `;
     }
@@ -640,7 +642,12 @@ class URLTable {
     if (urlInput) {
       urlInput.addEventListener('blur', () => {
         const newValue = urlInput.value.trim();
-        if (newValue !== (url.newURL || '')) {
+        // For replacement inputs, compare against replacementURL, otherwise against newURL
+        const currentValue = urlInput.classList.contains('replacement-input')
+          ? (url.replacementURL || '')
+          : (url.newURL || '');
+
+        if (newValue !== currentValue) {
           this.emit('urlEdited', { urlId: url.id, newURL: newValue });
         }
       });

@@ -33,6 +33,23 @@ describe('URL Fixer Application Integration', () => {
     app = URLFixerApp.getInstance();
   });
 
+  afterEach(() => {
+    // Clean up app instance if it exists and is initialized
+    if (app && app.isInitialized) {
+      try {
+        app.destroy();
+      } catch (error) {
+        console.warn('Error during test cleanup:', error);
+      }
+    }
+
+    // Reset global mocks
+    vi.restoreAllMocks();
+
+    // Clear any remaining timers
+    vi.clearAllTimers();
+  });
+
   describe('Application Initialization', () => {
     it('should initialize successfully', async () => {
       await expect(app.init()).resolves.not.toThrow();
@@ -86,28 +103,64 @@ describe('URL Fixer Application Integration', () => {
           </body>
         </html>
       `;
-      
+
       const file = new File([htmlContent], 'test.html', { type: 'text/html' });
-      
-      // Mock file reading
+
+      // Mock file reading with improved error handling
       const originalFileReader = global.FileReader;
-      global.FileReader = vi.fn(() => ({
-        readAsText: vi.fn(function() {
-          setTimeout(() => {
-            this.result = htmlContent;
-            this.onload();
-          }, 0);
-        }),
-        set onload(handler) { this._onload = handler; },
-        set onerror(handler) { this._onerror = handler; }
-      }));
+      global.FileReader = vi.fn(() => {
+        const mockReader = {
+          result: null,
+          error: null,
+          readyState: 0, // EMPTY
+          _onload: null,
+          _onerror: null,
+          _onloadstart: null,
+          _onprogress: null,
+          _onloadend: null,
+
+          readAsText: vi.fn(function() {
+            this.readyState = 1; // LOADING
+            if (this._onloadstart) {
+              this._onloadstart();
+            }
+
+            // Simulate async file reading
+            setTimeout(() => {
+              this.readyState = 2; // DONE
+              this.result = htmlContent;
+              this.error = null;
+
+              if (this._onload) {
+                this._onload({ target: this });
+              }
+              if (this._onloadend) {
+                this._onloadend({ target: this });
+              }
+            }, 0);
+          }),
+
+          // Property setters for event handlers
+          set onload(handler) { this._onload = handler; },
+          get onload() { return this._onload; },
+          set onerror(handler) { this._onerror = handler; },
+          get onerror() { return this._onerror; },
+          set onloadstart(handler) { this._onloadstart = handler; },
+          get onloadstart() { return this._onloadstart; },
+          set onprogress(handler) { this._onprogress = handler; },
+          get onprogress() { return this._onprogress; },
+          set onloadend(handler) { this._onloadend = handler; },
+          get onloadend() { return this._onloadend; }
+        };
+        return mockReader;
+      });
 
       await app.controllers.app.handleFileUpload(file);
-      
+
       const documentState = app.models.document.getState();
       expect(documentState.document).toBeDefined();
       expect(documentState.urls.length).toBeGreaterThan(0);
-      
+
       global.FileReader = originalFileReader;
     });
 
@@ -154,13 +207,60 @@ describe('URL Fixer Application Integration', () => {
 
     it('should handle unsupported file types', async () => {
       const file = new File(['data'], 'test.xyz', { type: 'application/unknown' });
-      
+
       await expect(app.controllers.app.handleFileUpload(file))
         .rejects.toThrow('Unsupported file type');
     });
 
+    it('should handle FileReader errors during file upload', async () => {
+      const file = new File(['test content'], 'test.html', { type: 'text/html' });
+
+      // Mock FileReader to simulate error
+      const originalFileReader = global.FileReader;
+      global.FileReader = vi.fn(() => {
+        const mockReader = {
+          result: null,
+          error: new Error('File read error'),
+          readyState: 0,
+          _onload: null,
+          _onerror: null,
+          _onloadend: null,
+
+          readAsText: vi.fn(function() {
+            this.readyState = 1; // LOADING
+
+            setTimeout(() => {
+              this.readyState = 2; // DONE
+              this.error = new Error('File read error');
+
+              if (this._onerror) {
+                this._onerror({ target: this });
+              }
+              if (this._onloadend) {
+                this._onloadend({ target: this });
+              }
+            }, 0);
+          }),
+
+          set onload(handler) { this._onload = handler; },
+          get onload() { return this._onload; },
+          set onerror(handler) { this._onerror = handler; },
+          get onerror() { return this._onerror; },
+          set onloadend(handler) { this._onloadend = handler; },
+          get onloadend() { return this._onloadend; }
+        };
+        return mockReader;
+      });
+
+      await expect(app.controllers.app.handleFileUpload(file))
+        .rejects.toThrow('Failed to read file');
+
+      global.FileReader = originalFileReader;
+    });
+
     it('should handle invalid URLs', async () => {
-      await expect(app.controllers.app.handleURLScan('not-a-url'))
+      // Use a URL that will definitely fail validation
+      await expect(app.controllers.app.handleURLScan('://invalid-url'))
         .rejects.toThrow('Invalid URL format');
     });
 
@@ -301,7 +401,42 @@ describe('URL Fixer Application Integration', () => {
   describe('Cleanup', () => {
     it('should cleanup resources properly', async () => {
       await app.init();
-      
+
+      // Verify app is initialized
+      expect(app.isInitialized).toBe(true);
+      expect(app.services).toBeDefined();
+      expect(app.models).toBeDefined();
+      expect(app.views).toBeDefined();
+      expect(app.controllers).toBeDefined();
+
+      // Destroy the app
+      expect(() => app.destroy()).not.toThrow();
+
+      // Verify cleanup
+      expect(app.isInitialized).toBe(false);
+      expect(Object.keys(app.services)).toHaveLength(0);
+      expect(Object.keys(app.models)).toHaveLength(0);
+      expect(Object.keys(app.views)).toHaveLength(0);
+      expect(Object.keys(app.controllers)).toHaveLength(0);
+    });
+
+    it('should handle destroy when not initialized', () => {
+      const newApp = new URLFixerApp();
+      expect(newApp.isInitialized).toBe(false);
+
+      // Should not throw when destroying uninitialized app
+      expect(() => newApp.destroy()).not.toThrow();
+      expect(newApp.isInitialized).toBe(false);
+    });
+
+    it('should handle destroy with missing components gracefully', async () => {
+      await app.init();
+
+      // Manually remove some components to test graceful handling
+      delete app.controllers.app.destroy;
+      delete app.views.app.destroy;
+
+      // Should still work without throwing
       expect(() => app.destroy()).not.toThrow();
       expect(app.isInitialized).toBe(false);
     });

@@ -271,6 +271,32 @@ class URLFixerApp {
   }
 
   /**
+   * Cleanup and destroy the application
+   */
+  destroy() {
+    this.logger.info('Destroying URL Fixer application...');
+
+    // Destroy controllers
+    if (this.controllers.app && this.controllers.app.destroy) {
+      this.controllers.app.destroy();
+    }
+
+    // Destroy views
+    if (this.views.app && this.views.app.destroy) {
+      this.views.app.destroy();
+    }
+
+    // Clear references
+    this.services = {};
+    this.models = {};
+    this.views = {};
+    this.controllers = {};
+
+    this.isInitialized = false;
+    this.logger.info('Application destroyed');
+  }
+
+  /**
    * Get application instance
    */
   static getInstance() {

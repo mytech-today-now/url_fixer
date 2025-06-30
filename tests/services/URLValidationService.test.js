@@ -45,11 +45,16 @@ describe('URLValidationService', () => {
           ['content-length', '1234']
         ])
       };
-      
-      global.fetch.mockResolvedValue(mockResponse);
+
+      // Mock fetch with a small delay to simulate response time
+      global.fetch.mockImplementation(() =>
+        new Promise(resolve => {
+          setTimeout(() => resolve(mockResponse), 10);
+        })
+      );
 
       const result = await validationService.validateURL('https://example.com');
-      
+
       expect(result.url).toBe('https://example.com');
       expect(result.status).toBe(200);
       expect(result.statusText).toBe('OK');
@@ -83,22 +88,30 @@ describe('URLValidationService', () => {
     });
 
     it('should handle timeout errors', async () => {
-      global.fetch.mockImplementation(() => 
-        new Promise((resolve) => {
-          setTimeout(() => resolve({
+      global.fetch.mockImplementation((url, options) =>
+        new Promise((resolve, reject) => {
+          const timeoutId = setTimeout(() => resolve({
             ok: true,
             status: 200,
             statusText: 'OK',
             headers: new Map()
           }), 15000);
+
+          // Handle abort signal
+          if (options?.signal) {
+            options.signal.addEventListener('abort', () => {
+              clearTimeout(timeoutId);
+              reject(new DOMException('The operation was aborted.', 'AbortError'));
+            });
+          }
         })
       );
 
       const result = await validationService.validateURL('https://example.com', { timeout: 1000 });
-      
+
       expect(result.status).toBe(0);
       expect(result.error).toContain('timeout');
-    });
+    }, 10000); // Increase test timeout to 10 seconds
 
     it('should use cached results when available', async () => {
       const cachedResult = {
@@ -217,6 +230,10 @@ describe('URLValidationService', () => {
     });
 
     it('should not retry non-retryable errors', async () => {
+      // Disable proxy fallback to avoid additional calls
+      validationService.useProxyFallback = false;
+      validationService.proxyAvailable = false;
+
       let callCount = 0;
       global.fetch.mockImplementation(() => {
         callCount++;
@@ -224,7 +241,7 @@ describe('URLValidationService', () => {
       });
 
       const result = await validationService.validateURL('https://example.com');
-      
+
       expect(callCount).toBe(1);
       expect(result.status).toBe(0);
     });

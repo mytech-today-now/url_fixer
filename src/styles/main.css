@@ -587,6 +587,12 @@ section h2 {
   font-size: 0.75rem;
 }
 
+.replacement-input {
+  margin-top: 0.25rem;
+  border: 1px solid var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 5%, var(--background-color));
+}
+
 /* Action buttons */
 .action-buttons {
   display: flex;

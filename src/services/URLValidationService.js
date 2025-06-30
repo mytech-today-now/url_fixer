@@ -414,7 +414,7 @@ export class URLValidationService {
    * Check if status indicates a successful response
    */
   isSuccessStatus(status) {
-    return status >= 200 && status < 400;
+    return status >= 200 && status < 300;
   }
 
   /**
@@ -480,10 +480,10 @@ export class URLValidationService {
 
       if (result.status === 0) {
         stats.networkErrors++;
-      } else if (this.isSuccessStatus(result.status)) {
-        stats.successful++;
       } else if (this.isRedirectStatus(result.status)) {
         stats.redirects++;
+      } else if (this.isSuccessStatus(result.status)) {
+        stats.successful++;
       } else if (this.isClientErrorStatus(result.status)) {
         stats.clientErrors++;
       } else if (this.isServerErrorStatus(result.status)) {
@@ -493,8 +493,8 @@ export class URLValidationService {
       totalResponseTime += result.responseTime || 0;
     });
 
-    stats.averageResponseTime = results.length > 0 
-      ? Math.round(totalResponseTime / results.length) 
+    stats.averageResponseTime = results.length > 0
+      ? Math.floor(totalResponseTime / results.length)
       : 0;
 
     return stats;

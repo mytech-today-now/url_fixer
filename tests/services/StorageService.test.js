@@ -9,6 +9,10 @@ describe('StorageService', () => {
   let storageService;
 
   beforeEach(() => {
+    // Clear mock data before each test
+    if (global.clearMockIndexedDBData) {
+      global.clearMockIndexedDBData();
+    }
     storageService = new StorageService();
   });
 
@@ -110,9 +114,8 @@ describe('StorageService', () => {
 
       await storageService.storeSessionData(testKey, testData);
       const retrieved = await storageService.getSessionData(testKey);
-      
-      // Note: In our mock, this will return null, but in real implementation it would return testData
-      expect(retrieved).toBeNull(); // Mock behavior
+
+      expect(retrieved).toEqual(testData);
     });
 
     it('should return null for non-existent session data', async () => {
@@ -139,16 +142,42 @@ describe('StorageService', () => {
 
     it('should retrieve cached URL result', async () => {
       const testUrl = 'https://example.com';
+      const status = 200;
+      const responseTime = 150;
+      const headers = { 'content-type': 'text/html' };
+
+      // First cache a URL result
+      await storageService.cacheURLResult(testUrl, status, responseTime, headers);
+
+      // Then retrieve it
       const result = await storageService.getCachedURLResult(testUrl);
-      
-      // Mock returns null, but real implementation would return cached data if valid
+
+      expect(result).toBeDefined();
+      expect(result.url).toBe(testUrl);
+      expect(result.status).toBe(status);
+      expect(result.responseTime).toBe(responseTime);
+      expect(result.headers).toEqual(headers);
+    });
+
+    it('should return null for non-existent cached URL', async () => {
+      const result = await storageService.getCachedURLResult('https://nonexistent.com');
       expect(result).toBeNull();
     });
 
     it('should respect cache max age', async () => {
-      const testUrl = 'https://example.com';
-      const maxAge = 1000; // 1 second
-      
+      const testUrl = 'https://expired.com';
+      const status = 200;
+      const responseTime = 150;
+      const headers = { 'content-type': 'text/html' };
+      const maxAge = 10; // 10 milliseconds - very short for testing
+
+      // First cache a URL result
+      await storageService.cacheURLResult(testUrl, status, responseTime, headers);
+
+      // Wait for it to expire
+      await new Promise(resolve => setTimeout(resolve, 20));
+
+      // Try to retrieve it with the short max age - should be null
       const result = await storageService.getCachedURLResult(testUrl, maxAge);
       expect(result).toBeNull();
     });
@@ -165,9 +194,8 @@ describe('StorageService', () => {
 
       await storageService.storeSetting(key, value);
       const retrieved = await storageService.getSetting(key);
-      
-      // Mock returns null, but real implementation would return the value
-      expect(retrieved).toBeNull();
+
+      expect(retrieved).toBe(value);
     });
 
     it('should return default value for non-existent setting', async () => {
@@ -214,12 +242,17 @@ describe('StorageService', () => {
 
   describe('error handling', () => {
     it('should handle database open errors', async () => {
+      // Create a fresh StorageService instance for this test
+      const testStorageService = new StorageService();
+
       const mockError = new Error('Database error');
+      const originalOpen = global.indexedDB.open;
+
       global.indexedDB.open = vi.fn(() => {
         const request = {
           addEventListener: vi.fn(),
           set onsuccess(handler) { this.addEventListener('success', handler); },
-          set onerror(handler) { 
+          set onerror(handler) {
             this.addEventListener('error', handler);
             setTimeout(() => {
               this.error = mockError;
@@ -232,7 +265,10 @@ describe('StorageService', () => {
         return request;
       });
 
-      await expect(storageService.init()).rejects.toThrow('Database error');
+      await expect(testStorageService.init()).rejects.toThrow('Database error');
+
+      // Restore the original mock
+      global.indexedDB.open = originalOpen;
     });
 
     it('should handle transaction errors gracefully', async () => {

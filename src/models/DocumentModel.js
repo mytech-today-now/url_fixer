@@ -226,8 +226,13 @@ export class DocumentModel {
     const replacements = [];
 
     // Sort URLs by position (reverse order to maintain positions during replacement)
+    // Include URLs that have newURL set OR have a replacementURL that should be used
     const sortedUrls = [...this.urls]
-      .filter(url => url.newURL && url.newURL !== url.originalURL)
+      .filter(url => {
+        const hasNewUrl = url.newURL && url.newURL !== url.originalURL;
+        const hasReplacementUrl = url.replacementURL && url.replacementURL !== url.originalURL;
+        return hasNewUrl || hasReplacementUrl;
+      })
       .sort((a, b) => {
         if (a.line !== b.line) {
           return b.line - a.line; // Reverse line order
@@ -239,21 +244,24 @@ export class DocumentModel {
     sortedUrls.forEach(url => {
       const lines = content.split('\n');
       const lineIndex = url.line - 1;
-      
+
       if (lineIndex >= 0 && lineIndex < lines.length) {
         const line = lines[lineIndex];
-        const newLine = line.replace(url.originalURL, url.newURL);
-        
+        // Use newURL if available, otherwise use replacementURL
+        const replacementUrl = url.newURL || url.replacementURL;
+        const newLine = line.replace(url.originalURL, replacementUrl);
+
         if (newLine !== line) {
           lines[lineIndex] = newLine;
           content = lines.join('\n');
-          
+
           replacements.push({
             line: url.line,
             column: url.column,
             originalURL: url.originalURL,
-            newURL: url.newURL,
-            type: url.type
+            newURL: replacementUrl,
+            type: url.type,
+            source: url.newURL ? 'manual' : 'replacement-suggestion'
           });
         }
       }

@@ -218,10 +218,12 @@ export class URLProcessorModel {
         ...url,
         status: this.determineStatus(validationResult.status),
         statusCode: validationResult.status,
+        httpStatus: validationResult.status, // Add httpStatus for test compatibility
         responseTime: validationResult.responseTime,
         lastChecked: validationResult.timestamp,
         fromCache: validationResult.fromCache,
-        processedAt: new Date().toISOString()
+        processedAt: new Date().toISOString(),
+        searchAttempted: false // Initialize search tracking
       };
 
       // Step 2: If URL is broken (404 or 403), try to find a replacement
@@ -230,6 +232,8 @@ export class URLProcessorModel {
          (validationResult.status === 403 && this.config.enhancedSearch.enableFor403));
 
       if (shouldSearchForReplacement) {
+        processedUrl.searchAttempted = true;
+
         try {
           this.logger.info(`Attempting to find replacement for ${validationResult.status} error: ${url.originalURL}`);
           const replacement = await this.findReplacement(url.originalURL, {
@@ -245,6 +249,8 @@ export class URLProcessorModel {
             processedUrl.replacementConfidence = replacement.confidence;
             processedUrl.searchQuery = replacement.searchQuery;
             processedUrl.originalStatusCode = validationResult.status;
+            processedUrl.validated = replacement.validated;
+            processedUrl.replacementValidated = replacement.validated;
 
             if (this.config.autoFix) {
               processedUrl.newURL = replacement.replacementURL;
@@ -265,12 +271,15 @@ export class URLProcessorModel {
       
     } catch (error) {
       this.logger.error(`Failed to process URL ${url.originalURL}`, error);
-      
+
       return {
         ...url,
         status: 'error',
+        statusCode: 0,
+        httpStatus: 0,
         error: error.message,
-        processedAt: new Date().toISOString()
+        processedAt: new Date().toISOString(),
+        searchAttempted: false
       };
     }
   }
@@ -395,6 +404,7 @@ export class URLProcessorModel {
           stats.errors++;
           break;
         case 'replacement-found':
+        case 'replaced':
           stats.replacementFound++;
           break;
         case 'fixed':
@@ -413,7 +423,7 @@ export class URLProcessorModel {
     });
 
     if (responseTimeCount > 0) {
-      stats.averageResponseTime = Math.round(totalResponseTime / responseTimeCount);
+      stats.averageResponseTime = Math.floor(totalResponseTime / responseTimeCount);
     }
 
     return stats;

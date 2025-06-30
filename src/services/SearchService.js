@@ -407,7 +407,7 @@ export class SearchService {
   cleanSearchTerm(term) {
     return term
       .replace(/[-_]/g, ' ') // Replace hyphens and underscores with spaces
-      .replace(/[^a-zA-Z0-9\s]/g, '') // Remove special characters
+      .replace(/[^a-zA-Z0-9\s]/g, ' ') // Replace special characters with spaces
       .replace(/\s+/g, ' ') // Normalize whitespace
       .trim()
       .toLowerCase();
@@ -420,7 +420,7 @@ export class SearchService {
     try {
       // Rate limiting
       await this.enforceRateLimit();
-      
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -431,17 +431,26 @@ export class SearchService {
       searchURL.searchParams.set('no_html', '1');
       searchURL.searchParams.set('skip_disambig', '1');
 
-      const response = await fetch(searchURL.toString(), {
-        signal: controller.signal,
-        headers: {
-          'User-Agent': 'URL-Fixer/1.0 (+https://url-fixer.app)'
+      let response;
+      try {
+        response = await fetch(searchURL.toString(), {
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'URL-Fixer/1.0 (+https://url-fixer.app)'
+          }
+        });
+      } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          throw new Error('Search request timeout');
         }
-      });
+        throw error;
+      }
 
       clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        throw new Error(`Search API returned ${response.status}: ${response.statusText}`);
+      if (!response || !response.ok) {
+        throw new Error(`Search API returned ${response?.status || 'unknown'}: ${response?.statusText || 'unknown error'}`);
       }
 
       const data = await response.json();

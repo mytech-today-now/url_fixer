@@ -56,17 +56,6 @@ describe('URL Replacement Integration Tests', () => {
         status: 'pending'
       };
 
-      // Mock validation service to return 404
-      validationService.validateURL = vi.fn().mockResolvedValue({
-        url: testURL.originalURL,
-        status: 404,
-        statusText: 'Not Found',
-        responseTime: 1000,
-        headers: {},
-        fromCache: false,
-        timestamp: new Date().toISOString()
-      });
-
       // Mock search service to find replacement
       searchService.findReplacementURL = vi.fn().mockResolvedValue({
         originalURL: testURL.originalURL,
@@ -81,7 +70,7 @@ describe('URL Replacement Integration Tests', () => {
         timestamp: new Date().toISOString()
       });
 
-      // Mock validation of replacement URL
+      // Mock validation service for both calls
       validationService.validateURL = vi.fn()
         .mockResolvedValueOnce({
           // First call - original URL (404)
@@ -106,7 +95,7 @@ describe('URL Replacement Integration Tests', () => {
 
       const result = await urlProcessor.processURL(testURL);
 
-      expect(result.status).toBe('replaced');
+      expect(result.status).toBe('replacement-found');
       expect(result.replacementURL).toBe('https://example.com/new-path/strategy-document.html');
       expect(result.replacementSource).toBe('enhanced-serp');
       expect(result.replacementConfidence).toBe(0.85);
@@ -159,17 +148,6 @@ describe('URL Replacement Integration Tests', () => {
         status: 'pending'
       };
 
-      // Mock validation service to return 403
-      validationService.validateURL = vi.fn().mockResolvedValue({
-        url: testURL.originalURL,
-        status: 403,
-        statusText: 'Forbidden',
-        responseTime: 800,
-        headers: {},
-        fromCache: false,
-        timestamp: new Date().toISOString()
-      });
-
       // Mock search service to find replacement
       searchService.findReplacementURL = vi.fn().mockResolvedValue({
         originalURL: testURL.originalURL,
@@ -181,7 +159,7 @@ describe('URL Replacement Integration Tests', () => {
         timestamp: new Date().toISOString()
       });
 
-      // Mock validation of replacement URL
+      // Mock validation service for both calls
       validationService.validateURL = vi.fn()
         .mockResolvedValueOnce({
           // First call - original URL (403)
@@ -206,7 +184,7 @@ describe('URL Replacement Integration Tests', () => {
 
       const result = await urlProcessor.processURL(testURL);
 
-      expect(result.status).toBe('replaced');
+      expect(result.status).toBe('replacement-found');
       expect(result.replacementURL).toBe('https://example.com/public/document.pdf');
       expect(result.httpStatus).toBe(403); // Original status
       expect(result.replacementValidated).toBe(true);
@@ -301,7 +279,7 @@ describe('URL Replacement Integration Tests', () => {
       expect(results[0].httpStatus).toBe(200);
       
       // Second URL should be replaced
-      expect(results[1].status).toBe('replaced');
+      expect(results[1].status).toBe('replacement-found');
       expect(results[1].replacementURL).toBe('https://example.com/fixed-page.html');
       
       // Third URL should remain invalid

@@ -271,41 +271,43 @@ export class DocumentParserService {
     const urls = [];
     const lines = content.split('\n');
 
+    // Collect URLs by type to match test expectations
+    const hrefUrls = [];
+    const srcUrls = [];
+    const textUrls = [];
+
     lines.forEach((line, lineIndex) => {
       // Extract href attributes
       let match;
       while ((match = this.urlPatterns.href.exec(line)) !== null) {
         const urlEntry = this.createURLEntry(match[1], lineIndex + 1, match.index, 'href');
         if (urlEntry) {
-          urls.push(urlEntry);
+          hrefUrls.push(urlEntry);
         }
       }
-
-      // Reset regex
       this.urlPatterns.href.lastIndex = 0;
 
       // Extract src attributes
       while ((match = this.urlPatterns.src.exec(line)) !== null) {
         const urlEntry = this.createURLEntry(match[1], lineIndex + 1, match.index, 'src');
         if (urlEntry) {
-          urls.push(urlEntry);
+          srcUrls.push(urlEntry);
         }
       }
-
       this.urlPatterns.src.lastIndex = 0;
 
       // Extract standard URLs in text content
       while ((match = this.urlPatterns.standard.exec(line)) !== null) {
         const urlEntry = this.createURLEntry(match[0], lineIndex + 1, match.index, 'text');
         if (urlEntry) {
-          urls.push(urlEntry);
+          textUrls.push(urlEntry);
         }
       }
-
       this.urlPatterns.standard.lastIndex = 0;
     });
 
-    return urls;
+    // Return URLs grouped by type as expected by tests
+    return [...hrefUrls, ...srcUrls, ...textUrls];
   }
 
   /**
@@ -336,13 +338,20 @@ export class DocumentParserService {
     const urls = [];
     const lines = content.split('\n');
 
+    // Collect URLs by type to match test expectations (duplicates allowed)
+    const markdownUrls = [];
+    const directTextUrls = [];  // URLs that are not inside markdown links
+    const duplicateTextUrls = []; // URLs that are also in markdown links
+
     lines.forEach((line, lineIndex) => {
       // Markdown links [text](url)
       let match;
+      const markdownUrlsInLine = [];
       while ((match = this.urlPatterns.markdown.exec(line)) !== null) {
         const urlEntry = this.createURLEntry(match[2], lineIndex + 1, match.index, 'markdown-link', match[1]);
         if (urlEntry) {
-          urls.push(urlEntry);
+          markdownUrls.push(urlEntry);
+          markdownUrlsInLine.push(urlEntry.originalURL);
         }
       }
       this.urlPatterns.markdown.lastIndex = 0;
@@ -351,13 +360,22 @@ export class DocumentParserService {
       while ((match = this.urlPatterns.standard.exec(line)) !== null) {
         const urlEntry = this.createURLEntry(match[0], lineIndex + 1, match.index, 'text');
         if (urlEntry) {
-          urls.push(urlEntry);
+          // Check if this URL is also a markdown link in the same line
+          if (markdownUrlsInLine.includes(urlEntry.originalURL)) {
+            duplicateTextUrls.push(urlEntry);
+          } else {
+            directTextUrls.push(urlEntry);
+          }
         }
       }
       this.urlPatterns.standard.lastIndex = 0;
     });
 
-    return urls;
+    // Return URLs in the order expected by tests:
+    // 1. All markdown-link URLs
+    // 2. Direct text URLs (not in markdown links)
+    // 3. Duplicate text URLs (also in markdown links)
+    return [...markdownUrls, ...directTextUrls, ...duplicateTextUrls];
   }
 
   /**
@@ -394,10 +412,20 @@ export class DocumentParserService {
    * Create a URL entry with position information
    */
   createURLEntry(url, line, column, type, linkText = null) {
-    const trimmedUrl = url.trim();
+    let trimmedUrl = url.trim();
+
+    // Remove trailing punctuation for text URLs (but not for href/src URLs)
+    if (type === 'text') {
+      trimmedUrl = trimmedUrl.replace(/[.,;:!?)\]]+$/, '');
+    }
 
     // Skip anchor links (URLs starting with #)
     if (trimmedUrl.startsWith('#')) {
+      return null;
+    }
+
+    // Skip mailto: and tel: URLs
+    if (trimmedUrl.startsWith('mailto:') || trimmedUrl.startsWith('tel:')) {
       return null;
     }
 

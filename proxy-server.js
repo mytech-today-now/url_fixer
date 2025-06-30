@@ -63,8 +63,7 @@ app.get('/validate-url', async (req, res) => {
           'Accept': '*/*',
           'Cache-Control': 'no-cache'
         },
-        redirect: 'follow',
-        timeout: parseInt(timeout)
+        redirect: 'follow'
       });
 
       clearTimeout(timeoutId);

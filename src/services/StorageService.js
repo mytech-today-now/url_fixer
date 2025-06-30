@@ -172,20 +172,23 @@ export class StorageService {
           ? storeNames.map(name => transaction.objectStore(name))
           : transaction.objectStore(storeNames);
 
-        transaction.oncomplete = () => resolve();
+        transaction.oncomplete = () => resolve(undefined);
         transaction.onerror = () => reject(transaction.error);
         transaction.onabort = () => reject(new Error('Transaction aborted'));
 
         // Execute the operation
         const result = operation(stores, transaction);
-        
+
         // If operation returns a request, handle it
         if (result && typeof result.onsuccess === 'function') {
           result.onsuccess = () => resolve(result.result);
           result.onerror = () => reject(result.error);
+        } else if (result && typeof result.then === 'function') {
+          // If operation returns a promise, wait for it
+          result.then(resolve).catch(reject);
         } else {
-          // If operation doesn't return a request, resolve with the result
-          resolve(result);
+          // If operation doesn't return a request or promise, resolve with undefined for write operations
+          resolve(undefined);
         }
         
       } catch (error) {
@@ -200,8 +203,8 @@ export class StorageService {
   async storeProcessingHistory(data) {
     const record = {
       ...data,
-      timestamp: new Date().toISOString(),
-      id: undefined // Let IndexedDB auto-generate
+      timestamp: new Date().toISOString()
+      // Don't set id - let IndexedDB auto-generate
     };
 
     return this.executeTransaction('processing_history', 'readwrite', (store) => {
@@ -424,8 +427,8 @@ export class StorageService {
    */
   async clearAllData() {
     const storeNames = ['processing_history', 'session_data', 'url_cache', 'settings'];
-    
-    return this.executeTransaction(storeNames, 'readwrite', (stores) => {
+
+    await this.executeTransaction(storeNames, 'readwrite', (stores) => {
       const promises = stores.map(store => {
         return new Promise((resolve, reject) => {
           const request = store.clear();
@@ -433,9 +436,12 @@ export class StorageService {
           request.onerror = () => reject(request.error);
         });
       });
-      
+
       return Promise.all(promises);
     });
+
+    // Return undefined explicitly
+    return undefined;
   }
 
   /**

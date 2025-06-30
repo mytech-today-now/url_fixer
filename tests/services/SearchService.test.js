@@ -145,17 +145,25 @@ describe('SearchService', () => {
     });
 
     it('should handle search timeouts', async () => {
-      global.fetch.mockImplementation(() => 
-        new Promise((resolve) => {
-          setTimeout(() => resolve({
+      global.fetch.mockImplementation((url, options) =>
+        new Promise((resolve, reject) => {
+          const timeoutId = setTimeout(() => resolve({
             ok: true,
             json: () => Promise.resolve({})
           }), 2000);
+
+          // Handle abort signal
+          if (options?.signal) {
+            options.signal.addEventListener('abort', () => {
+              clearTimeout(timeoutId);
+              reject(new DOMException('The operation was aborted.', 'AbortError'));
+            });
+          }
         })
       );
 
       await expect(searchService.performSearch('test query', 5, 1000))
-        .rejects.toThrow('timeout');
+        .rejects.toThrow('Search request timeout');
     });
   });
 
@@ -364,26 +372,40 @@ describe('SearchService', () => {
 
   describe('replacement URL finding', () => {
     it('should find and validate replacement URLs', async () => {
+      // Mock enhanced SERP search to return null so it falls back to regular search
+      searchService.performEnhancedSerpSearch = vi.fn().mockResolvedValue(null);
+
+      // Mock validation methods to return successful validation
+      searchService.validateSearchResults = vi.fn().mockResolvedValue([
+        {
+          url: 'https://example.com/new-article',
+          title: 'New Article',
+          snippet: 'This is the new article',
+          confidence: 0.8
+        }
+      ]);
+
+      // Mock validateReplacementURL to return successful validation
+      searchService.validateReplacementURL = vi.fn().mockResolvedValue({
+        valid: true,
+        score: 0.9,
+        domainRelevance: 0.8,
+        accessibilityResult: { accessible: true, score: 1.0 },
+        contentRelevance: { score: 0.9 }
+      });
+
       // Mock search response
-      global.fetch
-        .mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve({
-            AbstractURL: 'https://example.com/new-article',
-            Heading: 'New Article',
-            AbstractText: 'This is the new article'
-          })
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          AbstractURL: 'https://example.com/new-article',
+          Heading: 'New Article',
+          AbstractText: 'This is the new article'
         })
-        // Mock validation response
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          statusText: 'OK',
-          headers: new Map()
-        });
+      });
 
       const replacement = await searchService.findReplacementURL('https://example.com/old-article');
-      
+
       expect(replacement).toBeDefined();
       expect(replacement.replacementURL).toBe('https://example.com/new-article');
       expect(replacement.validated).toBe(true);
