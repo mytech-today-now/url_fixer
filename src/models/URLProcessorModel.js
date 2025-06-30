@@ -27,11 +27,52 @@ export class URLProcessorModel {
       searchTimeout: 15000,
       useCache: true,
       strictDomainSearch: true,
-      autoFix: false
+      autoFix: false,
+
+      // Enhanced search configuration
+      enhancedSearch: {
+        enabled: true,
+        maxSerpResults: 5,
+        contentScrapeTimeout: 10000,
+        minKeywordMatchRatio: 0.5,
+        maxRetries: 2,
+        fallbackToOriginalSearch: true,
+        enableFor404: true,
+        enableFor403: true
+      }
     };
     
     // Event listeners
     this.listeners = new Map();
+
+    // Initialize search service with enhanced configuration
+    this.updateSearchServiceConfig();
+  }
+
+  /**
+   * Update configuration
+   */
+  updateConfig(newConfig) {
+    this.config = {
+      ...this.config,
+      ...newConfig,
+      enhancedSearch: {
+        ...this.config.enhancedSearch,
+        ...(newConfig.enhancedSearch || {})
+      }
+    };
+
+    this.updateSearchServiceConfig();
+    this.logger.info('Configuration updated:', this.config);
+  }
+
+  /**
+   * Update search service configuration
+   */
+  updateSearchServiceConfig() {
+    if (this.searchService && typeof this.searchService.updateEnhancedSearchConfig === 'function') {
+      this.searchService.updateEnhancedSearchConfig(this.config.enhancedSearch);
+    }
   }
 
   /**
@@ -183,11 +224,19 @@ export class URLProcessorModel {
         processedAt: new Date().toISOString()
       };
 
-      // Step 2: If URL is broken, try to find a replacement
-      if (processedUrl.status === 'invalid' && validationResult.status === 404) {
+      // Step 2: If URL is broken (404 or 403), try to find a replacement
+      const shouldSearchForReplacement = processedUrl.status === 'invalid' &&
+        ((validationResult.status === 404 && this.config.enhancedSearch.enableFor404) ||
+         (validationResult.status === 403 && this.config.enhancedSearch.enableFor403));
+
+      if (shouldSearchForReplacement) {
         try {
-          const replacement = await this.findReplacement(url.originalURL, { signal });
-          
+          this.logger.info(`Attempting to find replacement for ${validationResult.status} error: ${url.originalURL}`);
+          const replacement = await this.findReplacement(url.originalURL, {
+            signal,
+            statusCode: validationResult.status
+          });
+
           if (replacement) {
             processedUrl.status = this.config.autoFix ? 'fixed' : 'replacement-found';
             processedUrl.replacementFound = true;
@@ -195,16 +244,19 @@ export class URLProcessorModel {
             processedUrl.replacementSource = replacement.source;
             processedUrl.replacementConfidence = replacement.confidence;
             processedUrl.searchQuery = replacement.searchQuery;
-            
+            processedUrl.originalStatusCode = validationResult.status;
+
             if (this.config.autoFix) {
               processedUrl.newURL = replacement.replacementURL;
             }
-            
-            this.logger.info(`Replacement found for ${url.originalURL}: ${replacement.replacementURL}`);
+
+            this.logger.info(`Replacement found for ${validationResult.status} error ${url.originalURL}: ${replacement.replacementURL}`);
+          } else {
+            this.logger.warn(`No replacement found for ${validationResult.status} error: ${url.originalURL}`);
           }
-          
+
         } catch (searchError) {
-          this.logger.warn(`Failed to find replacement for ${url.originalURL}`, searchError);
+          this.logger.warn(`Failed to find replacement for ${validationResult.status} error ${url.originalURL}`, searchError);
           processedUrl.searchError = searchError.message;
         }
       }
@@ -227,12 +279,13 @@ export class URLProcessorModel {
    * Find replacement URL for a broken link
    */
   async findReplacement(originalURL, options = {}) {
-    const { signal } = options;
-    
+    const { signal, statusCode } = options;
+
     try {
       const replacement = await this.searchService.findReplacementURL(originalURL, {
         timeout: this.config.searchTimeout,
         strictDomain: this.config.strictDomainSearch,
+        statusCode,
         signal
       });
       
@@ -400,6 +453,26 @@ export class URLProcessorModel {
       isProcessing: this.isProcessing,
       currentBatch: this.currentBatch,
       config: this.config
+    };
+  }
+
+  /**
+   * Get current configuration
+   */
+  getConfig() {
+    return { ...this.config };
+  }
+
+  /**
+   * Get processing statistics
+   */
+  getStats() {
+    return {
+      isProcessing: this.isProcessing,
+      currentBatch: this.currentBatch,
+      config: { ...this.config },
+      listeners: this.listeners.size,
+      searchServiceStats: this.searchService ? this.searchService.getSearchStats() : null
     };
   }
 

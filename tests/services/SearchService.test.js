@@ -18,6 +18,9 @@ describe('SearchService', () => {
       expect(searchService.searchEndpoint).toBe('https://api.duckduckgo.com/');
       expect(searchService.maxResults).toBe(5);
       expect(searchService.searchTimeout).toBe(15000);
+      expect(searchService.enhancedSearchConfig).toBeDefined();
+      expect(searchService.enhancedSearchConfig.maxSerpResults).toBe(5);
+      expect(searchService.enhancedSearchConfig.minKeywordMatchRatio).toBe(0.5);
     });
   });
 
@@ -45,7 +48,7 @@ describe('SearchService', () => {
     it('should handle root URLs', () => {
       const url = 'https://example.com/';
       const parsed = searchService.parseURL(url);
-      
+
       expect(parsed.fileName).toBe('');
       expect(parsed.pathParts).toEqual([]);
     });

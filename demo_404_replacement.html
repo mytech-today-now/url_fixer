@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404/403 URL Replacement Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .demo-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #fafafa;
+        }
+        .demo-section h2 {
+            color: #555;
+            margin-top: 0;
+        }
+        .url-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+        .btn {
+            background: #007cba;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn:hover {
+            background: #005a87;
+        }
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
+        .results.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .results.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .results.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007cba;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .test-urls {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .test-urls h3 {
+            margin-top: 0;
+            color: #856404;
+        }
+        .test-url {
+            display: block;
+            margin: 5px 0;
+            color: #007cba;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .test-url:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 404/403 URL Replacement Demo</h1>
+        
+        <div class="demo-section">
+            <h2>Test Enhanced URL Replacement</h2>
+            <p>This demo tests the enhanced 404/403 URL replacement functionality. Enter a URL that returns a 404 or 403 error, and the system will attempt to find a working replacement using intelligent web search.</p>
+            
+            <div class="test-urls">
+                <h3>Sample Test URLs (Click to use):</h3>
+                <a href="#" class="test-url" data-url="https://www.mckinsey.com/capabilities/strategy-and-corporate-finance/our-insights/why-do-most-strategy-exercises-fail-to-deliver">McKinsey Strategy Document (404 Example)</a>
+                <a href="#" class="test-url" data-url="https://example.com/old-path/document-name-like-this.html">Generic 404 Example</a>
+                <a href="#" class="test-url" data-url="https://httpstat.us/404">HTTP Status 404 Test</a>
+                <a href="#" class="test-url" data-url="https://httpstat.us/403">HTTP Status 403 Test</a>
+            </div>
+            
+            <input type="url" id="testUrl" class="url-input" placeholder="Enter a URL that returns 404 or 403..." />
+            <button id="testBtn" class="btn">Test URL Replacement</button>
+            
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>Searching for replacement URL...</p>
+            </div>
+            
+            <div id="results" class="results" style="display: none;"></div>
+        </div>
+        
+        <div class="demo-section">
+            <h2>How It Works</h2>
+            <ol>
+                <li><strong>URL Validation:</strong> First checks if the URL returns a 404 or 403 error</li>
+                <li><strong>Filename Analysis:</strong> Extracts meaningful keywords from the URL path and filename</li>
+                <li><strong>Enhanced SERP Search:</strong> Performs site-specific search using pattern: "site:domain.tld keyword1 keyword2"</li>
+                <li><strong>Content Scraping:</strong> Scrapes each search result to find pages containing the keywords</li>
+                <li><strong>Validation:</strong> Validates that replacement URLs are accessible and relevant</li>
+                <li><strong>Confidence Scoring:</strong> Provides confidence scores based on keyword matches and domain relevance</li>
+            </ol>
+        </div>
+        
+        <div class="demo-section">
+            <h2>Features</h2>
+            <ul>
+                <li>✅ Multiple search engine support (SerpApi, DuckDuckGo, Bing, Google)</li>
+                <li>✅ Intelligent keyword extraction from filenames</li>
+                <li>✅ Enhanced content scraping with structured analysis</li>
+                <li>✅ Comprehensive URL validation and accessibility checks</li>
+                <li>✅ Domain relevance scoring</li>
+                <li>✅ Confidence-based result ranking</li>
+                <li>✅ Fallback search strategies</li>
+            </ul>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import the URL Fixer application
+        import { URLFixerApp } from './src/main.js';
+        
+        let app;
+        
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                app = URLFixerApp.getInstance();
+                await app.init();
+                console.log('URL Fixer app initialized');
+            } catch (error) {
+                console.error('Failed to initialize app:', error);
+                showResults('Failed to initialize URL Fixer application: ' + error.message, 'error');
+            }
+        });
+        
+        // Test URL functionality
+        document.getElementById('testBtn').addEventListener('click', async () => {
+            const url = document.getElementById('testUrl').value.trim();
+            if (!url) {
+                showResults('Please enter a URL to test', 'error');
+                return;
+            }
+            
+            await testURLReplacement(url);
+        });
+        
+        // Handle test URL clicks
+        document.querySelectorAll('.test-url').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const url = e.target.getAttribute('data-url');
+                document.getElementById('testUrl').value = url;
+            });
+        });
+        
+        async function testURLReplacement(url) {
+            const loadingEl = document.getElementById('loading');
+            const resultsEl = document.getElementById('results');
+            const testBtn = document.getElementById('testBtn');
+            
+            // Show loading state
+            loadingEl.style.display = 'block';
+            resultsEl.style.display = 'none';
+            testBtn.disabled = true;
+            
+            try {
+                console.log('Testing URL replacement for:', url);
+                
+                // Create a test URL object
+                const testURL = {
+                    id: 'demo-test',
+                    originalURL: url,
+                    fileName: url.split('/').pop() || 'unknown',
+                    status: 'pending'
+                };
+                
+                // Process the URL using the URL processor
+                const result = await app.models.urlProcessor.processURL(testURL);
+                
+                // Format and display results
+                const resultText = formatResult(result);
+                showResults(resultText, getResultType(result));
+                
+            } catch (error) {
+                console.error('URL replacement test failed:', error);
+                showResults('Error testing URL replacement: ' + error.message, 'error');
+            } finally {
+                // Hide loading state
+                loadingEl.style.display = 'none';
+                testBtn.disabled = false;
+            }
+        }
+        
+        function formatResult(result) {
+            let output = `Original URL: ${result.originalURL}\n`;
+            output += `Status: ${result.status}\n`;
+            output += `HTTP Status: ${result.httpStatus || 'N/A'}\n`;
+            output += `Response Time: ${result.responseTime || 'N/A'}ms\n\n`;
+            
+            if (result.status === 'replaced') {
+                output += `🎉 REPLACEMENT FOUND!\n`;
+                output += `Replacement URL: ${result.replacementURL}\n`;
+                output += `Source: ${result.replacementSource}\n`;
+                output += `Confidence: ${(result.replacementConfidence * 100).toFixed(1)}%\n`;
+                output += `Validated: ${result.validated ? 'Yes' : 'No'}\n`;
+                
+                if (result.validationScore) {
+                    output += `Validation Score: ${(result.validationScore * 100).toFixed(1)}%\n`;
+                }
+                
+                if (result.searchQuery) {
+                    output += `Search Query: "${result.searchQuery}"\n`;
+                }
+                
+                if (result.matchedKeywords && result.matchedKeywords.length > 0) {
+                    output += `Matched Keywords: ${result.matchedKeywords.join(', ')}\n`;
+                }
+            } else if (result.status === 'invalid') {
+                output += `❌ URL is broken (${result.httpStatus})\n`;
+                
+                if (result.searchAttempted) {
+                    output += `Search attempted but no suitable replacement found.\n`;
+                }
+                
+                if (result.searchError) {
+                    output += `Search Error: ${result.searchError}\n`;
+                }
+            } else if (result.status === 'valid') {
+                output += `✅ URL is working correctly\n`;
+            } else if (result.status === 'error') {
+                output += `💥 Error processing URL\n`;
+                output += `Error: ${result.error}\n`;
+            }
+            
+            output += `\nProcessed at: ${result.processedAt}`;
+            
+            return output;
+        }
+        
+        function getResultType(result) {
+            if (result.status === 'replaced') return 'success';
+            if (result.status === 'valid') return 'success';
+            if (result.status === 'invalid') return 'error';
+            if (result.status === 'error') return 'error';
+            return 'info';
+        }
+        
+        function showResults(text, type = 'info') {
+            const resultsEl = document.getElementById('results');
+            resultsEl.textContent = text;
+            resultsEl.className = `results ${type}`;
+            resultsEl.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
