@@ -1,0 +1,159 @@
+This is a python Web Service that checks the validity of all of the URLs in the Web documents, uploaded or drag and drop (.htm, .html, .asp, .aspx, .css, .md, .markdown, .doc, .docx, .txt, .rtf, .pdf) or URL of the page submitted to be scanned.
+
+The Application will make a object for the document, where each URL in the object/document is subject to the following process.
+
+The Application will keep track of the input:output JSON record for the processing, in browser storage.  The JSON record will contain the | <Line L, Column C> | input URL | new Output URL | <New Line Start L, New Column Start C> - <New Line End L, New Column End C> |
+
+Process:
+Use an HTTP validator to check the HTTP status of a GET from the URL to be scanned.
+If 200 is returned, validate the link >> END Process >> Go to next URL
+If 404 is returned, Use the Domain of the URL to web search using Duck, duck, Go Search APIs for the File Name in the URL.
+If a positive result is found in the web search, check the first item of SERPs for the correct entry.  Validate that each Serp, as it is checked, is part of the domain of the domain of the URL.
+Scrape the Serp result page to see if the "normalized" File Name is on the page.
+For example: 
+A 404 is returned on "https://www.mckinsey.com/capabilities/strategy-and-corporate-finance/our-insights/why-do-most-strategy-exercises-fail-to-deliver".
+The process should search Duck Duck Go for "site:mckinsey.com why do most strategy exercises fail to deliver"
+Next it should take the resulting Serp page, and check the first result by scraping SERP Result Page #1 for the terms: "why do most strategy exercises fail to deliver".  If success is found, Use that URL as the new URL in the document.
+If succcess is found the process will go to the next URL in the document.
+
+The user has a process Button in the style of the page. The user also has a download button which will download the document, with the new URL values in place of the old URL values, from the any changes in the JSON editing control.
+
+The Application will provide a table of the JSON object with live hyperlinks for both the original URL target="_blank" and the new URL as a hyperlink with a target="_blank".  The JSON table is scrollable, re-sizable, editable, and the rows and header columns alternate colros for easy viewing.
+
+
+
+
+
+# ✅ Web App Development Guidelines (Print-Friendly)
+
+## 🔒 Storage & Data Handling
+
+* Use **IndexedDB** for local storage.
+
+  * Wrap with Promise-based helper module.
+  * Validate schema migrations.
+* Provide 2-step clearing mechanism in `<div>` to reset to factory settings.
+* Handle storage limits and quota exceeded errors.
+* Encrypt sensitive data before local storage.
+* Never store unencrypted credentials or tokens.
+
+## 🧱 Architecture & Design Patterns
+
+* Use **MVC (Model-View-Controller)** architecture.
+* Implement **Model Context Protocol (MCP)** for session, memory, roles, tools, and state.
+* Normalize API responses with a **Data Normalization Pattern**.
+* Use **Progressive Enhancement**: fallback for unsupported features.
+* Apply **Policy-Based Access Control** (roles + ownership/context).
+* Implement **Feature Flags** with local JSON or remote config.
+* Enforce **Security Patterns**: CSP, SRI, secure context.
+
+## 💡 Code Safety & Best Practices
+
+* Use `"strict mode"` and descriptive naming.
+* Avoid global state with IIFEs or ES modules.
+* Sanitize and validate **all user input** (client + API).
+* Log errors in format:
+  `[HH:MM:SS AM/PM] <Element> tag #X: <message> at line L, column C`
+* Provide robust error handling with fallback behavior.
+* Add timeouts and retry logic to all fetch requests.
+
+## 📄 Documentation & Versioning
+
+* Document all **functions, arrays, public APIs** (README + inline comments).
+* Update app and README **version numbers** on each release.
+* Use `.env.local` for credentials; include `.env.example` as a template.
+* Maintain a **CHANGELOG.md** with summaries, version bumps, test logs.
+* Auto-update `/docs/` with:
+
+  * API docs (Swagger/OpenAPI)
+  * Data flow diagrams
+  * Dependency graphs (madge, dependency-cruiser)
+
+## 🧑‍🦽 UI/UX & Accessibility
+
+* Keep all HTML/CSS intact; changes must be drop-in.
+* Implement:
+
+  * ARIA attributes
+  * Keyboard navigation
+  * High color contrast
+  * Screen reader testing
+* Provide `<noscript>` fallback.
+* Add **dark mode** toggle or media query support with preference storage.
+* Use **Skeleton Screens** (not spinners) for async loading.
+* Handle dynamic rendering for delayed/partial data.
+* Include basic SEO (title, description, OpenGraph) and a `robots.txt`.
+* Add fixed top **"Readme" button**:
+
+  * Opens scrollable popup (Markdown via Marked.js)of readme.md markdown
+  * Has visible “X” close button
+  * Styled clearly and overlays content
+
+## 🚀 Performance & Optimization
+
+* **Lazy load** components, images, and routes.
+* Use **Service Workers** for caching, offline support, update handling.
+* Include a complete **manifest.json** for PWA features.
+* Use **offline-first caching** with write-through sync on reconnect.
+* Simulate slow networks/devices in testing.
+* Monitor with **Web Vitals** and **Lighthouse**.
+* Prefer **immutable updates** (Immer.js, Redux).
+* Throttle events (scroll/resize) via `requestAnimationFrame` or debounce.
+* Use **content hashing** for long-term asset caching.
+* Prefetch assets based on behavior or route visibility.
+* Eliminate unused code with tree shaking; import libraries modularly.
+
+## 🧪 Testing & Build Pipeline
+
+* Write unit tests covering:
+
+  * Positive/negative
+  * Edge/boundary
+  * State transitions
+  * Simulated failures
+  * Performance
+* Add **automated UI regression tests** with visual snapshots.
+* Include **build scripts** (npm, Makefile) for lint, test, deploy steps.
+
+## ♻️ Reusable Design Patterns
+
+**Dependency Injection (DI)**
+→ Inject services via containers or factories for testing flexibility.
+
+**Command Pattern**
+→ Encapsulate user actions (e.g., SubmitFormCommand) for undo/logging.
+
+**Observer Pattern**
+→ Use pub/sub or RxJS for reactive UI state.
+
+**State Machine Pattern**
+→ Use XState or FSMs for onboarding, multi-step flows.
+
+**Strategy Pattern**
+→ Swap logic at runtime (e.g., pricing, rendering).
+
+**Adapter Pattern**
+→ Normalize third-party/legacy APIs.
+
+**Repository Pattern**
+→ Encapsulate DB/API logic behind an interface.
+
+**Facade Pattern**
+→ Hide subsystem complexity with clean public APIs.
+
+**Scoped Singleton Pattern**
+→ Share config or auth state via closures/modules.
+
+**Template Method Pattern**
+→ Provide overridable hooks (e.g., beforeSave).
+
+**Memento Pattern**
+→ Save and restore session or undo state.
+
+**Module Federation**
+→ Use Webpack for scalable microfrontend modules.
+
+## 🔐 Security
+
+* Apply **CSP nonces** to dynamically injected scripts.
+* Enforce **Zero Trust** and **Least Privilege** at both UI and API layers.

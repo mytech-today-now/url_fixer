@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Fixer - Document URL Validation Service</title>
+    <meta name="description" content="Validate and fix broken URLs in your documents with intelligent search and replacement">
+    <meta property="og:title" content="URL Fixer - Document URL Validation Service">
+    <meta property="og:description" content="Validate and fix broken URLs in your documents with intelligent search and replacement">
+    <meta property="og:type" content="website">
+    
+    <!-- Security Headers -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://api.duckduckgo.com https:;">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="/src/main.js" as="script" type="module">
+    <link rel="preload" href="/src/styles/main.css" as="style">
+    
+    <!-- Main styles -->
+    <link rel="stylesheet" href="/src/styles/main.css">
+</head>
+<body>
+    <!-- Skip to main content for accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    
+    <!-- Header with README button -->
+    <header class="header">
+        <div class="container">
+            <h1 class="logo">
+                <span class="logo-icon">🔗</span>
+                URL Fixer
+            </h1>
+            <button id="readme-btn" class="readme-btn" aria-label="Open README documentation">
+                📖 README
+            </button>
+        </div>
+    </header>
+
+    <!-- Main application content -->
+    <main id="main-content" class="main">
+        <div class="container">
+            <!-- Upload Section -->
+            <section class="upload-section" aria-labelledby="upload-heading">
+                <h2 id="upload-heading">Upload Document or Enter URL</h2>
+                
+                <!-- File Upload -->
+                <div class="upload-area" id="upload-area">
+                    <input type="file" id="file-input" class="file-input" 
+                           accept=".htm,.html,.asp,.aspx,.css,.md,.markdown,.doc,.docx,.txt,.rtf,.pdf"
+                           aria-describedby="file-help">
+                    <div class="upload-content">
+                        <div class="upload-icon">📁</div>
+                        <p class="upload-text">
+                            <strong>Drop files here</strong> or <button type="button" class="upload-trigger">browse</button>
+                        </p>
+                        <p id="file-help" class="upload-help">
+                            Supported: HTML, CSS, Markdown, DOC, DOCX, TXT, RTF, PDF
+                        </p>
+                    </div>
+                </div>
+
+                <!-- URL Input -->
+                <div class="url-input-section">
+                    <label for="url-input" class="url-label">Or enter a URL to scan:</label>
+                    <div class="url-input-group">
+                        <input type="url" id="url-input" class="url-input" 
+                               placeholder="https://example.com/page.html"
+                               aria-describedby="url-help">
+                        <button type="button" id="scan-url-btn" class="btn btn-secondary">
+                            Scan URL
+                        </button>
+                    </div>
+                    <p id="url-help" class="input-help">
+                        Enter a webpage URL to scan for broken links
+                    </p>
+                </div>
+            </section>
+
+            <!-- Processing Controls -->
+            <section class="controls-section" aria-labelledby="controls-heading">
+                <h2 id="controls-heading" class="sr-only">Processing Controls</h2>
+                <div class="controls">
+                    <button type="button" id="process-btn" class="btn btn-primary" disabled>
+                        <span class="btn-icon">⚡</span>
+                        Process URLs
+                    </button>
+                    <button type="button" id="download-btn" class="btn btn-success" disabled>
+                        <span class="btn-icon">💾</span>
+                        Download Fixed Document
+                    </button>
+                    <button type="button" id="clear-btn" class="btn btn-outline">
+                        <span class="btn-icon">🗑️</span>
+                        Clear All
+                    </button>
+                </div>
+            </section>
+
+            <!-- Results Table -->
+            <section class="results-section" aria-labelledby="results-heading">
+                <h2 id="results-heading">URL Processing Results</h2>
+                <div class="table-container" id="table-container">
+                    <div class="table-placeholder">
+                        <div class="placeholder-icon">🔍</div>
+                        <p>Upload a document or enter a URL to start scanning for links</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Progress Indicator -->
+            <div class="progress-container" id="progress-container" hidden>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+                <p class="progress-text" id="progress-text">Processing URLs...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2025 URL Fixer. Built with modern web technologies.</p>
+        </div>
+    </footer>
+
+    <!-- README Modal -->
+    <div class="modal" id="readme-modal" hidden>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Documentation</h2>
+                <button type="button" class="modal-close" id="readme-close" aria-label="Close documentation">
+                    ✕
+                </button>
+            </div>
+            <div class="modal-body" id="readme-content">
+                <div class="loading-skeleton">Loading documentation...</div>
+            </div>
+        </div>
+        <div class="modal-backdrop"></div>
+    </div>
+
+    <!-- Error Toast -->
+    <div class="toast" id="error-toast" hidden>
+        <div class="toast-content">
+            <span class="toast-icon">⚠️</span>
+            <span class="toast-message" id="toast-message"></span>
+            <button type="button" class="toast-close" aria-label="Close notification">✕</button>
+        </div>
+    </div>
+
+    <!-- No JavaScript fallback -->
+    <noscript>
+        <div class="noscript-warning">
+            <h2>JavaScript Required</h2>
+            <p>This application requires JavaScript to function properly. Please enable JavaScript in your browser settings.</p>
+        </div>
+    </noscript>
+
+    <!-- Main application script -->
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>

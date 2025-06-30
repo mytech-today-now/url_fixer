@@ -1,0 +1,36 @@
+{
+  "name": "url_fixer",
+  "version": "1.0.0",
+  "description": "A web service that validates and fixes URLs in documents using intelligent search and replacement",
+  "type": "module",
+  "main": "src/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "lint": "eslint src --ext .js",
+    "format": "prettier --write src/**/*.{js,css,html}"
+  },
+  "keywords": ["url", "validation", "document", "web", "service", "search", "replacement"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@vitejs/plugin-legacy": "^7.0.0",
+    "dompurify": "^3.2.6",
+    "jszip": "^3.10.1",
+    "mammoth": "^1.9.1",
+    "marked": "^16.0.0",
+    "pdf-parse": "^1.1.1",
+    "vite": "^7.0.0"
+  },
+  "devDependencies": {
+    "@vitest/ui": "^3.2.4",
+    "eslint": "^9.30.0",
+    "jsdom": "^26.1.0",
+    "prettier": "^3.6.2",
+    "vitest": "^3.2.4"
+  }
+}
