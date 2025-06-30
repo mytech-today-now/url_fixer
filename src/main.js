@@ -60,7 +60,7 @@ class URLFixerApp {
       this.initializeViews();
       
       // Initialize controllers
-      this.initializeControllers();
+      await this.initializeControllers();
       
       // Set up global error handling
       this.setupErrorHandling();
@@ -164,16 +164,19 @@ class URLFixerApp {
   /**
    * Initialize controllers
    */
-  initializeControllers() {
+  async initializeControllers() {
     this.logger.info('Initializing controllers...');
-    
+
     // Main application controller
     this.controllers.app = new AppController(
       this.models,
       this.views,
       this.services
     );
-    
+
+    // Initialize the controller
+    await this.controllers.app.init();
+
     this.logger.info('Controllers initialized');
   }
 

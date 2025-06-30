@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Validation Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; border: 1px solid #bee5eb; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>URL Validation Test</h1>
+    
+    <div class="info result">
+        <h3>Instructions</h3>
+        <p>This page tests the URLValidationService with CORS proxy fallback.</p>
+        <p>Open the browser console to see detailed logs.</p>
+    </div>
+
+    <button onclick="testValidation()">Test URL Validation</button>
+    <button onclick="clearResults()">Clear Results</button>
+
+    <div id="results"></div>
+    <div id="log" class="log"></div>
+
+    <script type="module">
+        import { URLValidationService } from '../src/services/URLValidationService.js';
+
+        const resultsDiv = document.getElementById('results');
+        const logDiv = document.getElementById('log');
+
+        function addLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function addResult(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.textContent = message;
+            resultsDiv.appendChild(div);
+        }
+
+        window.testValidation = async function() {
+            addLog('Starting URL validation test...');
+            addResult('Testing URL validation...', 'info');
+
+            try {
+                const validationService = new URLValidationService();
+                
+                // Test URLs that are likely to cause CORS issues
+                const testUrls = [
+                    'https://www.google.com',
+                    'https://en.wikipedia.org/wiki/CORS',
+                    'https://httpbin.org/status/200'
+                ];
+
+                for (const url of testUrls) {
+                    addLog(`Testing: ${url}`);
+                    
+                    try {
+                        const result = await validationService.validateURL(url, {
+                            timeout: 10000,
+                            useCache: false
+                        });
+
+                        const method = result.viaProxy ? 'proxy' : 'direct';
+                        const message = `${url} -> ${result.status} ${result.statusText} (via ${method})`;
+                        
+                        if (result.status > 0) {
+                            addResult(`✅ ${message}`, 'success');
+                            addLog(`Success: ${message}`);
+                        } else {
+                            addResult(`❌ ${message}`, 'error');
+                            addLog(`Error: ${message}`);
+                        }
+                    } catch (error) {
+                        const message = `${url} -> Error: ${error.message}`;
+                        addResult(`❌ ${message}`, 'error');
+                        addLog(`Exception: ${message}`);
+                    }
+                }
+
+                addLog('URL validation test completed');
+                addResult('Test completed', 'info');
+
+            } catch (error) {
+                addResult(`❌ Test failed: ${error.message}`, 'error');
+                addLog(`Test failed: ${error.message}`);
+            }
+        };
+
+        window.clearResults = function() {
+            resultsDiv.innerHTML = '';
+            logDiv.textContent = '';
+        };
+
+        // Auto-start test
+        addLog('Page loaded, ready for testing');
+    </script>
+</body>
+</html>

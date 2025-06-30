@@ -270,32 +270,41 @@ export class DocumentParserService {
   parseHTMLContent(content) {
     const urls = [];
     const lines = content.split('\n');
-    
+
     lines.forEach((line, lineIndex) => {
       // Extract href attributes
       let match;
       while ((match = this.urlPatterns.href.exec(line)) !== null) {
-        urls.push(this.createURLEntry(match[1], lineIndex + 1, match.index, 'href'));
+        const urlEntry = this.createURLEntry(match[1], lineIndex + 1, match.index, 'href');
+        if (urlEntry) {
+          urls.push(urlEntry);
+        }
       }
-      
+
       // Reset regex
       this.urlPatterns.href.lastIndex = 0;
-      
+
       // Extract src attributes
       while ((match = this.urlPatterns.src.exec(line)) !== null) {
-        urls.push(this.createURLEntry(match[1], lineIndex + 1, match.index, 'src'));
+        const urlEntry = this.createURLEntry(match[1], lineIndex + 1, match.index, 'src');
+        if (urlEntry) {
+          urls.push(urlEntry);
+        }
       }
-      
+
       this.urlPatterns.src.lastIndex = 0;
-      
+
       // Extract standard URLs in text content
       while ((match = this.urlPatterns.standard.exec(line)) !== null) {
-        urls.push(this.createURLEntry(match[0], lineIndex + 1, match.index, 'text'));
+        const urlEntry = this.createURLEntry(match[0], lineIndex + 1, match.index, 'text');
+        if (urlEntry) {
+          urls.push(urlEntry);
+        }
       }
-      
+
       this.urlPatterns.standard.lastIndex = 0;
     });
-    
+
     return urls;
   }
 
@@ -305,15 +314,18 @@ export class DocumentParserService {
   parseCSSContent(content) {
     const urls = [];
     const lines = content.split('\n');
-    
+
     lines.forEach((line, lineIndex) => {
       let match;
       while ((match = this.urlPatterns.css.exec(line)) !== null) {
-        urls.push(this.createURLEntry(match[1], lineIndex + 1, match.index, 'css-url'));
+        const urlEntry = this.createURLEntry(match[1], lineIndex + 1, match.index, 'css-url');
+        if (urlEntry) {
+          urls.push(urlEntry);
+        }
       }
       this.urlPatterns.css.lastIndex = 0;
     });
-    
+
     return urls;
   }
 
@@ -323,22 +335,28 @@ export class DocumentParserService {
   parseMarkdownContent(content) {
     const urls = [];
     const lines = content.split('\n');
-    
+
     lines.forEach((line, lineIndex) => {
       // Markdown links [text](url)
       let match;
       while ((match = this.urlPatterns.markdown.exec(line)) !== null) {
-        urls.push(this.createURLEntry(match[2], lineIndex + 1, match.index, 'markdown-link', match[1]));
+        const urlEntry = this.createURLEntry(match[2], lineIndex + 1, match.index, 'markdown-link', match[1]);
+        if (urlEntry) {
+          urls.push(urlEntry);
+        }
       }
       this.urlPatterns.markdown.lastIndex = 0;
-      
+
       // Standard URLs in text
       while ((match = this.urlPatterns.standard.exec(line)) !== null) {
-        urls.push(this.createURLEntry(match[0], lineIndex + 1, match.index, 'text'));
+        const urlEntry = this.createURLEntry(match[0], lineIndex + 1, match.index, 'text');
+        if (urlEntry) {
+          urls.push(urlEntry);
+        }
       }
       this.urlPatterns.standard.lastIndex = 0;
     });
-    
+
     return urls;
   }
 
@@ -348,21 +366,27 @@ export class DocumentParserService {
   parseTextContent(content) {
     const urls = [];
     const lines = content.split('\n');
-    
+
     lines.forEach((line, lineIndex) => {
       let match;
       while ((match = this.urlPatterns.standard.exec(line)) !== null) {
-        urls.push(this.createURLEntry(match[0], lineIndex + 1, match.index, 'text'));
+        const urlEntry = this.createURLEntry(match[0], lineIndex + 1, match.index, 'text');
+        if (urlEntry) {
+          urls.push(urlEntry);
+        }
       }
       this.urlPatterns.standard.lastIndex = 0;
-      
+
       // Email links
       while ((match = this.urlPatterns.email.exec(line)) !== null) {
-        urls.push(this.createURLEntry(match[0], lineIndex + 1, match.index, 'email'));
+        const urlEntry = this.createURLEntry(match[0], lineIndex + 1, match.index, 'email');
+        if (urlEntry) {
+          urls.push(urlEntry);
+        }
       }
       this.urlPatterns.email.lastIndex = 0;
     });
-    
+
     return urls;
   }
 
@@ -370,8 +394,15 @@ export class DocumentParserService {
    * Create a URL entry with position information
    */
   createURLEntry(url, line, column, type, linkText = null) {
+    const trimmedUrl = url.trim();
+
+    // Skip anchor links (URLs starting with #)
+    if (trimmedUrl.startsWith('#')) {
+      return null;
+    }
+
     return {
-      originalURL: url.trim(),
+      originalURL: trimmedUrl,
       newURL: null, // Will be set during processing
       line,
       column,

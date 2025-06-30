@@ -110,11 +110,36 @@ describe('DocumentParserService', () => {
 
     it('should track line and column positions', () => {
       const htmlContent = `<a href="https://example.com">Link</a>`;
-      
+
       const urls = parserService.parseHTMLContent(htmlContent);
       expect(urls).toHaveLength(1);
       expect(urls[0].line).toBe(1);
       expect(urls[0].column).toBeGreaterThan(0);
+    });
+
+    it('should skip anchor links (URLs starting with #)', () => {
+      const htmlContent = `
+        <html>
+          <body>
+            <a href="https://example.com">External Link</a>
+            <a href="#section1">Anchor Link 1</a>
+            <a href="#top">Anchor Link 2</a>
+            <a href="https://test.com">Another External Link</a>
+            <img src="#invalid-src" alt="Invalid">
+          </body>
+        </html>
+      `;
+
+      const urls = parserService.parseHTMLContent(htmlContent);
+      expect(urls).toHaveLength(2);
+      expect(urls[0].originalURL).toBe('https://example.com');
+      expect(urls[0].type).toBe('href');
+      expect(urls[1].originalURL).toBe('https://test.com');
+      expect(urls[1].type).toBe('href');
+
+      // Verify anchor links are not included
+      const anchorLinks = urls.filter(url => url.originalURL.startsWith('#'));
+      expect(anchorLinks).toHaveLength(0);
     });
   });
 
@@ -167,6 +192,32 @@ describe('DocumentParserService', () => {
       // Direct URL
       expect(urls[2].originalURL).toBe('https://direct.com');
       expect(urls[2].type).toBe('text');
+    });
+
+    it('should skip anchor links in Markdown content', () => {
+      const markdownContent = `
+        # Table of Contents
+
+        - [Section 1](#section1)
+        - [Section 2](#section2)
+        - [External Link](https://example.com)
+        - [Another Anchor](#top)
+
+        Visit https://test.com for more info.
+      `;
+
+      const urls = parserService.parseMarkdownContent(markdownContent);
+      expect(urls).toHaveLength(2);
+
+      // Only external links should be included
+      expect(urls[0].originalURL).toBe('https://example.com');
+      expect(urls[0].type).toBe('markdown-link');
+      expect(urls[1].originalURL).toBe('https://test.com');
+      expect(urls[1].type).toBe('text');
+
+      // Verify anchor links are not included
+      const anchorLinks = urls.filter(url => url.originalURL.startsWith('#'));
+      expect(anchorLinks).toHaveLength(0);
     });
   });
 

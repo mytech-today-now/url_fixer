@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anchor Link Filtering Demo</title>
+</head>
+<body>
+    <h1>URL Fixer - Anchor Link Filtering Demo</h1>
+    
+    <p>This document demonstrates the new anchor link filtering feature.</p>
+    
+    <h2>Navigation (Anchor Links - Will be filtered out)</h2>
+    <ul>
+        <li><a href="#section1">Go to Section 1</a></li>
+        <li><a href="#section2">Go to Section 2</a></li>
+        <li><a href="#top">Back to Top</a></li>
+    </ul>
+    
+    <h2>External Links (Will be processed)</h2>
+    <ul>
+        <li><a href="https://example.com">Example Website</a></li>
+        <li><a href="https://github.com">GitHub</a></li>
+        <li><a href="http://test.org">Test Organization</a></li>
+    </ul>
+    
+    <h2 id="section1">Section 1</h2>
+    <p>Visit <a href="https://docs.example.com">our documentation</a> for more information.</p>
+    <p>You can also check out https://blog.example.com directly.</p>
+    
+    <h2 id="section2">Section 2</h2>
+    <p>Images and resources:</p>
+    <img src="https://example.com/image.jpg" alt="Example Image">
+    <img src="#placeholder" alt="This anchor link will be filtered out">
+    
+    <p>When you process this document with URL Fixer, only the external URLs will be checked:</p>
+    <ul>
+        <li>https://example.com</li>
+        <li>https://github.com</li>
+        <li>http://test.org</li>
+        <li>https://docs.example.com</li>
+        <li>https://blog.example.com</li>
+        <li>https://example.com/image.jpg</li>
+    </ul>
+    
+    <p>The following anchor links will be automatically skipped:</p>
+    <ul>
+        <li>#section1</li>
+        <li>#section2</li>
+        <li>#top</li>
+        <li>#placeholder</li>
+    </ul>
+</body>
+</html>

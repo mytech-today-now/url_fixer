@@ -165,7 +165,7 @@ export class AppView {
     });
 
     this.elements.readmeModal?.addEventListener('click', (e) => {
-      if (e.target === this.elements.readmeModal) {
+      if (e.target === this.elements.readmeModal || e.target.classList.contains('modal-backdrop')) {
         this.hideReadmeModal();
       }
     });

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORS Proxy Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .log {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>CORS Proxy Test</h1>
+    <p>This page tests the CORS proxy functionality for URL validation.</p>
+
+    <div class="test-section info">
+        <h3>Test Instructions</h3>
+        <ol>
+            <li>Make sure both the main app (port 3000) and proxy server (port 3001) are running</li>
+            <li>Click the buttons below to test different scenarios</li>
+            <li>Check the console and logs below for detailed information</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h3>Proxy Server Health Check</h3>
+        <button onclick="testProxyHealth()">Test Proxy Health</button>
+        <div id="proxy-health-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Direct URL Validation (Will likely fail due to CORS)</h3>
+        <button onclick="testDirectValidation()">Test Direct Validation</button>
+        <div id="direct-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Proxy URL Validation</h3>
+        <button onclick="testProxyValidation()">Test Proxy Validation</button>
+        <div id="proxy-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>URLValidationService Integration Test</h3>
+        <button onclick="testIntegration()">Test Integration</button>
+        <div id="integration-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test Log</h3>
+        <button onclick="clearLog()">Clear Log</button>
+        <div id="log" class="log"></div>
+    </div>
+
+    <script type="module">
+        import { URLValidationService } from './src/services/URLValidationService.js';
+        import { Logger } from './src/utils/Logger.js';
+
+        // Set up logging
+        const logger = new Logger('CORSTest');
+        const logDiv = document.getElementById('log');
+
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            logDiv.textContent += logMessage;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            
+            if (type === 'error') {
+                console.error(message);
+            } else {
+                console.log(message);
+            }
+        }
+
+        // Test URLs that are likely to cause CORS issues
+        const testUrls = [
+            'https://www.google.com',
+            'https://en.wikipedia.org/wiki/CORS',
+            'https://httpbin.org/status/200',
+            'https://example.com'
+        ];
+
+        window.testProxyHealth = async function() {
+            addLog('Testing proxy server health...');
+            const resultDiv = document.getElementById('proxy-health-result');
+            
+            try {
+                const response = await fetch('http://localhost:3001/health');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = '<div class="success">✅ Proxy server is healthy</div>';
+                    addLog(`Proxy health check successful: ${JSON.stringify(data)}`);
+                } else {
+                    resultDiv.innerHTML = '<div class="error">❌ Proxy server health check failed</div>';
+                    addLog(`Proxy health check failed: ${response.status} ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="error">❌ Cannot connect to proxy server</div>';
+                addLog(`Proxy health check error: ${error.message}`, 'error');
+            }
+        };
+
+        window.testDirectValidation = async function() {
+            addLog('Testing direct URL validation (expecting CORS errors)...');
+            const resultDiv = document.getElementById('direct-result');
+            const testUrl = testUrls[0];
+            
+            try {
+                const response = await fetch(testUrl, { method: 'HEAD', mode: 'cors' });
+                resultDiv.innerHTML = '<div class="success">✅ Direct validation succeeded (unexpected)</div>';
+                addLog(`Direct validation unexpectedly succeeded for ${testUrl}: ${response.status}`);
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="error">❌ Direct validation failed (expected due to CORS)</div>';
+                addLog(`Direct validation failed as expected for ${testUrl}: ${error.message}`);
+            }
+        };
+
+        window.testProxyValidation = async function() {
+            addLog('Testing proxy URL validation...');
+            const resultDiv = document.getElementById('proxy-result');
+            const testUrl = testUrls[0];
+            
+            try {
+                const proxyUrl = `http://localhost:3001/validate-url?url=${encodeURIComponent(testUrl)}`;
+                const response = await fetch(proxyUrl);
+                const data = await response.json();
+                
+                if (response.ok && data.status > 0) {
+                    resultDiv.innerHTML = '<div class="success">✅ Proxy validation succeeded</div>';
+                    addLog(`Proxy validation successful for ${testUrl}: ${JSON.stringify(data)}`);
+                } else {
+                    resultDiv.innerHTML = '<div class="error">❌ Proxy validation failed</div>';
+                    addLog(`Proxy validation failed for ${testUrl}: ${JSON.stringify(data)}`, 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="error">❌ Proxy validation error</div>';
+                addLog(`Proxy validation error for ${testUrl}: ${error.message}`, 'error');
+            }
+        };
+
+        window.testIntegration = async function() {
+            addLog('Testing URLValidationService integration...');
+            const resultDiv = document.getElementById('integration-result');
+            
+            try {
+                const validationService = new URLValidationService();
+                const testUrl = testUrls[0];
+                
+                addLog(`Starting validation of ${testUrl}...`);
+                const result = await validationService.validateURL(testUrl);
+                
+                if (result.status > 0) {
+                    const method = result.viaProxy ? 'proxy' : 'direct';
+                    resultDiv.innerHTML = `<div class="success">✅ Integration test succeeded via ${method}</div>`;
+                    addLog(`Integration test successful via ${method}: ${JSON.stringify(result)}`);
+                } else {
+                    resultDiv.innerHTML = '<div class="error">❌ Integration test failed</div>';
+                    addLog(`Integration test failed: ${JSON.stringify(result)}`, 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="error">❌ Integration test error</div>';
+                addLog(`Integration test error: ${error.message}`, 'error');
+            }
+        };
+
+        window.clearLog = function() {
+            logDiv.textContent = '';
+        };
+
+        // Auto-run proxy health check on page load
+        window.addEventListener('load', () => {
+            addLog('CORS Proxy Test page loaded');
+            setTimeout(testProxyHealth, 1000);
+        });
+    </script>
+</body>
+</html>

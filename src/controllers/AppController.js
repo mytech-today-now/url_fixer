@@ -12,16 +12,14 @@ export class AppController {
   constructor(models, views, services) {
     this.logger = new Logger('AppController');
     this.errorHandler = new ErrorHandler();
-    
+
     // Dependencies
     this.models = models;
     this.views = views;
     this.services = services;
-    
+
     // State
     this.isInitialized = false;
-    
-    this.init();
   }
 
   /**
