@@ -1,6 +1,6 @@
 {
   "name": "url_fixer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A web service that validates and fixes URLs in documents using intelligent search and replacement",
   "type": "module",
   "main": "src/main.js",

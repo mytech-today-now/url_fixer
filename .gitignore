@@ -23,6 +23,7 @@ vite.config.ts.timestamp-*
 .env.development.local
 .env.test.local
 .env.production.local
+.env.test
 
 # IDE and editor files
 .vscode/
@@ -30,6 +31,7 @@ vite.config.ts.timestamp-*
 *.swp
 *.swo
 *~
+.vscode-test
 
 # OS generated files
 .DS_Store
@@ -74,9 +76,6 @@ temp/
 # Optional npm cache directory
 .npm
 
-# Optional eslint cache
-.eslintcache
-
 # Microbundle cache
 .rpt2_cache/
 .rts2_cache_cjs/
@@ -91,12 +90,6 @@ temp/
 
 # Yarn Integrity file
 .yarn-integrity
-
-# dotenv environment variables file
-.env.test
-
-# Stores VSCode versions used for testing VSCode extensions
-.vscode-test
 
 # yarn v2
 .yarn/cache
@@ -128,3 +121,15 @@ workbox-*.js
 # Document processing temporary files
 *.tmp
 *.temp
+
+# Puppeteer specific
+.puppeteer/
+puppeteer-cache/
+
+# Debug and test files (project specific)
+debug-*.html
+test-*.html
+demo_*.html
+
+# Project specific temporary files
+url_fixer_prompt.txt

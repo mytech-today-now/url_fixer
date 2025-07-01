@@ -5,12 +5,14 @@ A powerful web service that validates and fixes broken URLs in documents using i
 ## Features
 
 - **Multi-format Support**: Process HTML, CSS, Markdown, DOC, DOCX, TXT, RTF, and PDF files
-- **URL Validation**: Check HTTP status of all URLs in documents
+- **URL Validation**: Check HTTP status of all URLs in documents with real-time status indicators
 - **Intelligent Replacement**: Use DuckDuckGo search to find replacement URLs for broken links
-- **Interactive Editing**: Edit results in a responsive, accessible table
+- **Auto-Population**: Replacement URL fields automatically populate based on validation status
+- **Interactive Editing**: Edit results in a responsive, accessible table with instant updates
 - **Document Download**: Download corrected documents with fixed URLs
 - **Offline Support**: PWA with service worker for offline functionality
 - **Accessibility**: Full WCAG compliance with keyboard navigation and screen reader support
+- **Processing History**: IndexedDB storage for tracking and resuming processing sessions
 
 ## Quick Start
 
@@ -31,10 +33,12 @@ A powerful web service that validates and fixes broken URLs in documents using i
 ## How It Works
 
 1. **URL Extraction**: Parse documents to find all URLs with position tracking
-2. **Validation**: Send HTTP GET requests to check URL status
-3. **Smart Search**: For 404 errors, search DuckDuckGo using domain + filename
-4. **Verification**: Scrape search results to verify replacement URLs
-5. **Replacement**: Update documents with working URLs
+2. **Validation**: Send HTTP GET requests to check URL status with caching
+3. **Auto-Population**: Replacement fields automatically populate based on validation results
+4. **Smart Search**: For 404/403 errors, search DuckDuckGo using domain + filename patterns
+5. **Verification**: Scrape search results to verify replacement URLs
+6. **Interactive Editing**: Review and modify suggestions in real-time
+7. **Replacement**: Update documents with working URLs and download corrected versions
 
 ## Technology Stack
 
@@ -69,14 +73,17 @@ npm run dev
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build
+- `npm run proxy` - Start CORS proxy server
+- `npm run dev:full` - Start both development server and proxy
 - `npm test` - Run tests
 - `npm run test:ui` - Run tests with UI
+- `npm run test:run` - Run tests once
 - `npm run lint` - Lint code
 - `npm run format` - Format code
 
 ### Project Structure
 
-```
+```text
 url_fixer/
 ├── src/
 │   ├── controllers/     # MVC Controllers
@@ -88,7 +95,9 @@ url_fixer/
 │   └── styles/         # CSS styles
 ├── public/             # Static assets
 ├── tests/              # Test files
-└── docs/               # Documentation
+├── docs/               # Documentation
+├── scripts/            # Build and utility scripts
+└── proxy-server.js     # CORS proxy for development
 ```
 
 ## Architecture
@@ -128,13 +137,25 @@ ISC License - see LICENSE file for details
 
 ## Version History
 
-### v1.0.0 (Current)
-- Initial release
-- Multi-format document support
-- URL validation and replacement
-- PWA functionality
-- Accessibility compliance
+### v1.1.0 (Current)
+
+- **Enhanced URL Processing**: Auto-population of replacement URL fields based on validation status
+- **Improved User Experience**: Real-time status indicators and instant field updates
+- **CORS Proxy Support**: Development proxy server for handling CORS restrictions
+- **Extended Testing**: Additional test coverage for new features
+- **Documentation Updates**: Comprehensive feature implementation documentation
+
+### v1.0.0
+
+- Initial release with core functionality
+- Multi-format document support (HTML, CSS, Markdown, DOC, DOCX, TXT, RTF, PDF)
+- URL validation and intelligent replacement system
+- PWA functionality with offline support
+- Full accessibility compliance (WCAG 2.1 AA)
+- MVC architecture with comprehensive testing
 
 ---
 
-**Built with ❤️ using modern web technologies**
+## Built with Modern Web Technologies
+
+This project leverages cutting-edge web technologies to deliver a fast, reliable, and accessible user experience.
