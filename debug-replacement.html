@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug URL Replacement</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .result { margin: 10px 0; padding: 10px; background: #f5f5f5; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e9; color: #2e7d32; }
+        button { padding: 10px 20px; margin: 5px; }
+        input { width: 300px; padding: 5px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Debug URL Replacement Issue</h1>
+    
+    <div class="test-section">
+        <h2>Test URL Processing</h2>
+        <input type="url" id="testUrl" placeholder="Enter a URL to test" value="https://httpstat.us/404">
+        <button onclick="testUrlProcessing()">Test URL Processing</button>
+        <div id="urlResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Document Processing</h2>
+        <textarea id="testDocument" rows="5" cols="50" placeholder="Enter HTML content with URLs">
+<a href="https://httpstat.us/404">Broken Link</a>
+<a href="https://example.com/nonexistent-page">Another Broken Link</a>
+        </textarea>
+        <br>
+        <button onclick="testDocumentProcessing()">Process Document</button>
+        <div id="documentResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Search Service Test</h2>
+        <input type="url" id="searchUrl" placeholder="Enter URL to search for replacement" value="https://example.com/old-page">
+        <button onclick="testSearchService()">Test Search</button>
+        <div id="searchResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test UI with Mock Replacement</h2>
+        <button onclick="testMockReplacement()">Test Mock Replacement in UI</button>
+        <div id="mockResult" class="result"></div>
+    </div>
+
+    <script type="module">
+        import { URLFixerApp } from './src/main.js';
+        
+        let app;
+        
+        // Initialize app when page loads
+        window.addEventListener('app:ready', (event) => {
+            app = event.detail.app;
+            console.log('App ready:', app);
+            document.getElementById('urlResult').innerHTML = '<div class="success">App initialized successfully!</div>';
+        });
+
+        // Test URL processing
+        window.testUrlProcessing = async function() {
+            const url = document.getElementById('testUrl').value;
+            const resultDiv = document.getElementById('urlResult');
+            
+            if (!app) {
+                resultDiv.innerHTML = '<div class="error">App not initialized yet</div>';
+                return;
+            }
+            
+            try {
+                resultDiv.innerHTML = '<div>Processing URL...</div>';
+                
+                // Create a test URL object
+                const testUrl = {
+                    id: 'test-' + Date.now(),
+                    originalURL: url,
+                    line: 1,
+                    column: 1,
+                    type: 'href',
+                    status: 'pending'
+                };
+                
+                console.log('Processing URL:', testUrl);
+                
+                // Process the URL
+                const result = await app.models.urlProcessor.processURL(testUrl);
+                
+                console.log('Processing result:', result);
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h3>Processing Result:</h3>
+                        <p><strong>Status:</strong> ${result.status}</p>
+                        <p><strong>Status Code:</strong> ${result.statusCode}</p>
+                        <p><strong>Search Attempted:</strong> ${result.searchAttempted}</p>
+                        ${result.replacementURL ? `
+                            <p><strong>Replacement Found:</strong> ${result.replacementURL}</p>
+                            <p><strong>Confidence:</strong> ${result.replacementConfidence}</p>
+                            <p><strong>Source:</strong> ${result.replacementSource}</p>
+                        ` : '<p><strong>No replacement found</strong></p>'}
+                        ${result.error ? `<p><strong>Error:</strong> ${result.error}</p>` : ''}
+                        <details>
+                            <summary>Full Result</summary>
+                            <pre>${JSON.stringify(result, null, 2)}</pre>
+                        </details>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error processing URL:', error);
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        };
+
+        // Test document processing
+        window.testDocumentProcessing = async function() {
+            const content = document.getElementById('testDocument').value;
+            const resultDiv = document.getElementById('documentResult');
+            
+            if (!app) {
+                resultDiv.innerHTML = '<div class="error">App not initialized yet</div>';
+                return;
+            }
+            
+            try {
+                resultDiv.innerHTML = '<div>Processing document...</div>';
+                
+                // Create test document
+                const documentData = {
+                    fileName: 'test.html',
+                    fileType: 'html',
+                    fileSize: content.length,
+                    content: content,
+                    urls: [] // Will be extracted
+                };
+                
+                // Load document (this will extract URLs)
+                await app.models.document.loadDocument(documentData);
+                
+                // Get extracted URLs
+                const urls = app.models.document.urls;
+                console.log('Extracted URLs:', urls);
+                
+                if (urls.length === 0) {
+                    resultDiv.innerHTML = '<div class="error">No URLs found in document</div>';
+                    return;
+                }
+                
+                // Process URLs
+                await app.controllers.app.handleProcessURLs();
+                
+                // Get updated URLs
+                const processedUrls = app.models.document.urls;
+                console.log('Processed URLs:', processedUrls);
+                
+                let resultHtml = '<div class="success"><h3>Document Processing Result:</h3>';
+                processedUrls.forEach((url, index) => {
+                    resultHtml += `
+                        <div style="margin: 10px 0; padding: 10px; border: 1px solid #ddd;">
+                            <p><strong>URL ${index + 1}:</strong> ${url.originalURL}</p>
+                            <p><strong>Status:</strong> ${url.status}</p>
+                            <p><strong>Status Code:</strong> ${url.statusCode}</p>
+                            ${url.replacementURL ? `
+                                <p><strong>Replacement:</strong> ${url.replacementURL}</p>
+                                <p><strong>Confidence:</strong> ${url.replacementConfidence}</p>
+                            ` : ''}
+                        </div>
+                    `;
+                });
+                resultHtml += '</div>';
+                
+                resultDiv.innerHTML = resultHtml;
+                
+            } catch (error) {
+                console.error('Error processing document:', error);
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        };
+
+        // Test search service directly
+        window.testSearchService = async function() {
+            const url = document.getElementById('searchUrl').value;
+            const resultDiv = document.getElementById('searchResult');
+
+            if (!app) {
+                resultDiv.innerHTML = '<div class="error">App not initialized yet</div>';
+                return;
+            }
+
+            try {
+                resultDiv.innerHTML = '<div>Searching for replacement...</div>';
+
+                console.log('Testing search service for:', url);
+
+                // Test search service directly
+                const replacement = await app.services.search.findReplacementURL(url, {
+                    statusCode: 404,
+                    timeout: 15000
+                });
+
+                console.log('Search result:', replacement);
+
+                if (replacement) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h3>Search Result:</h3>
+                            <p><strong>Original URL:</strong> ${replacement.originalURL}</p>
+                            <p><strong>Replacement URL:</strong> ${replacement.replacementURL}</p>
+                            <p><strong>Confidence:</strong> ${replacement.confidence}</p>
+                            <p><strong>Source:</strong> ${replacement.source}</p>
+                            <p><strong>Search Query:</strong> ${replacement.searchQuery}</p>
+                            <details>
+                                <summary>Full Result</summary>
+                                <pre>${JSON.stringify(replacement, null, 2)}</pre>
+                            </details>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = '<div class="error">No replacement found</div>';
+                }
+
+            } catch (error) {
+                console.error('Error in search service:', error);
+                resultDiv.innerHTML = `<div class="error">Search Error: ${error.message}</div>`;
+            }
+        };
+
+        // Test UI with mock replacement data
+        window.testMockReplacement = async function() {
+            const resultDiv = document.getElementById('mockResult');
+
+            if (!app) {
+                resultDiv.innerHTML = '<div class="error">App not initialized yet</div>';
+                return;
+            }
+
+            try {
+                resultDiv.innerHTML = '<div>Creating mock replacement...</div>';
+
+                // Create test document with a broken URL
+                const documentData = {
+                    fileName: 'test.html',
+                    fileType: 'html',
+                    fileSize: 100,
+                    content: '<a href="https://httpstat.us/404">Broken Link</a>',
+                    urls: [
+                        {
+                            id: 'mock-test-' + Date.now(),
+                            originalURL: 'https://httpstat.us/404',
+                            line: 1,
+                            column: 10,
+                            type: 'href',
+                            status: 'pending'
+                        }
+                    ]
+                };
+
+                // Load the document
+                await app.models.document.loadDocument(documentData);
+
+                // Manually update the URL with mock replacement data
+                const urlId = documentData.urls[0].id;
+                app.models.document.updateURL(urlId, {
+                    status: 'replacement-found',
+                    statusCode: 404,
+                    replacementFound: true,
+                    replacementURL: 'https://httpstat.us/200',
+                    replacementConfidence: 0.85,
+                    replacementSource: 'mock-test',
+                    searchQuery: 'mock search query'
+                });
+
+                // Check if the UI shows the replacement
+                const urls = app.models.document.urls;
+                console.log('Mock replacement URL data:', urls[0]);
+
+                // Check the table for the replacement input
+                setTimeout(() => {
+                    const tableContainer = document.getElementById('table-container');
+                    const replacementInput = tableContainer?.querySelector('.replacement-input');
+
+                    if (replacementInput) {
+                        resultDiv.innerHTML = `
+                            <div class="success">
+                                <h3>Mock Replacement Test Result:</h3>
+                                <p><strong>✅ Replacement input found!</strong></p>
+                                <p><strong>Input value:</strong> ${replacementInput.value}</p>
+                                <p><strong>Expected value:</strong> https://httpstat.us/200</p>
+                                <p><strong>Values match:</strong> ${replacementInput.value === 'https://httpstat.us/200' ? '✅ Yes' : '❌ No'}</p>
+                                <details>
+                                    <summary>URL Data</summary>
+                                    <pre>${JSON.stringify(urls[0], null, 2)}</pre>
+                                </details>
+                            </div>
+                        `;
+                    } else {
+                        resultDiv.innerHTML = `
+                            <div class="error">
+                                <h3>Mock Replacement Test Result:</h3>
+                                <p><strong>❌ Replacement input NOT found!</strong></p>
+                                <p>The replacement URL was set in the model but the UI is not showing the input field.</p>
+                                <details>
+                                    <summary>URL Data</summary>
+                                    <pre>${JSON.stringify(urls[0], null, 2)}</pre>
+                                </details>
+                                <details>
+                                    <summary>Table HTML</summary>
+                                    <pre>${tableContainer?.innerHTML || 'Table container not found'}</pre>
+                                </details>
+                            </div>
+                        `;
+                    }
+                }, 100); // Small delay to let the UI update
+
+            } catch (error) {
+                console.error('Error in mock replacement test:', error);
+                resultDiv.innerHTML = `<div class="error">Mock Test Error: ${error.message}</div>`;
+            }
+        };
+    </script>
+</body>
+</html>

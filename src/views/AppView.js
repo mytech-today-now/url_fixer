@@ -573,9 +573,7 @@ class URLTable {
         </a>
       </td>
       <td>
-        <span class="status-badge status-${url.status}">
-          ${this.getStatusText(url.status, url.statusCode)}
-        </span>
+        ${this.renderStatusBadge(url)}
       </td>
       <td>
         ${this.renderNewUrlCell(url)}
@@ -596,28 +594,122 @@ class URLTable {
 
   renderNewUrlCell(url) {
     if (url.newURL) {
+      // Show the new URL with validation status if available
+      let validationIndicator = '';
+      if (url.replacementValidationStatus) {
+        const statusClass = url.replacementValidationStatus === 'valid' ? 'validation-success' :
+                           url.replacementValidationStatus === 'invalid' ? 'validation-error' :
+                           url.replacementValidationStatus === 'validating' ? 'validation-pending' : '';
+
+        const statusIcon = url.replacementValidationStatus === 'valid' ? '✓' :
+                          url.replacementValidationStatus === 'invalid' ? '✗' :
+                          url.replacementValidationStatus === 'validating' ? '⏳' : '';
+
+        validationIndicator = `<span class="validation-indicator ${statusClass}" title="${this.getValidationTooltip(url)}">${statusIcon}</span>`;
+      }
+
       return `
-        <a href="${url.newURL}" target="_blank" rel="noopener" class="url-link">
-          ${this.truncateUrl(url.newURL)}
-        </a>
+        <div class="new-url-container">
+          <a href="${url.newURL}" target="_blank" rel="noopener" class="url-link">
+            ${this.truncateUrl(url.newURL)}
+          </a>
+          ${validationIndicator}
+          ${url.replacementValidationError ? `<small class="validation-error-text">${url.replacementValidationError}</small>` : ''}
+        </div>
       `;
     } else if (url.replacementURL) {
+      // Show validation indicator for replacement URL
+      let validationIndicator = '';
+      if (url.replacementValidationStatus) {
+        const statusClass = url.replacementValidationStatus === 'valid' ? 'validation-success' :
+                           url.replacementValidationStatus === 'invalid' ? 'validation-error' :
+                           url.replacementValidationStatus === 'validating' ? 'validation-pending' : '';
+
+        const statusIcon = url.replacementValidationStatus === 'valid' ? '✓' :
+                          url.replacementValidationStatus === 'invalid' ? '✗' :
+                          url.replacementValidationStatus === 'validating' ? '⏳' : '';
+
+        validationIndicator = `<span class="validation-indicator ${statusClass}" title="${this.getValidationTooltip(url)}">${statusIcon}</span>`;
+      }
+
       return `
         <div class="replacement-suggestion">
-          <a href="${url.replacementURL}" target="_blank" rel="noopener" class="url-link suggested">
-            ${this.truncateUrl(url.replacementURL)}
-          </a>
+          <div class="replacement-url-container">
+            <a href="${url.replacementURL}" target="_blank" rel="noopener" class="url-link suggested">
+              ${this.truncateUrl(url.replacementURL)}
+            </a>
+            ${validationIndicator}
+          </div>
           <small class="confidence">Confidence: ${Math.round((url.replacementConfidence || 0) * 100)}%</small>
-          <input type="url" class="url-input-field replacement-input" placeholder="Enter replacement URL"
-                 value="${url.replacementURL}" data-url-id="${url.id}">
+          ${url.replacementValidationError ? `<small class="validation-error-text">${url.replacementValidationError}</small>` : ''}
+          <div class="url-input-container">
+            <input type="url" class="url-input-field replacement-input" placeholder="Enter replacement URL"
+                   value="${url.replacementURL}" data-url-id="${url.id}">
+            ${(url.alternatives && url.alternatives.length > 0) ? `
+            <button type="button" class="reprocess-btn" data-url-id="${url.id}" title="Get next best alternative URL">
+              🔄
+            </button>
+            ` : ''}
+            <button type="button" class="open-url-btn" data-url-id="${url.id}" title="Open URL in new tab">
+              🔗
+            </button>
+          </div>
         </div>
       `;
     } else {
+      // Determine the default value for the input field based on URL status
+      let defaultValue = '';
+
+      // Auto-populate replacement field based on URL validation status
+      if (url.status === 'invalid' && (url.statusCode === 404 || url.statusCode === 403)) {
+        // For 404/403 errors, populate with the scraped URL value (original URL)
+        defaultValue = url.originalURL || '';
+      } else if (url.status === 'valid' && url.statusCode === 200) {
+        // For valid URLs (200), populate with the valid URL value
+        defaultValue = url.originalURL || '';
+      } else if (url.status && url.status !== 'pending') {
+        // For other processed URLs, populate with original URL
+        defaultValue = url.originalURL || '';
+      }
+
       return `
-        <input type="url" class="url-input-field" placeholder="Enter replacement URL"
-               value="${url.newURL || ''}" data-url-id="${url.id}">
+        <div class="url-input-container">
+          <input type="url" class="url-input-field" placeholder="Enter replacement URL"
+                 value="${defaultValue}" data-url-id="${url.id}">
+          <button type="button" class="open-url-btn" data-url-id="${url.id}" title="Open URL in new tab">
+            🔗
+          </button>
+        </div>
       `;
     }
+  }
+
+  renderStatusBadge(url) {
+    // Check if this URL has alternatives available for cycling
+    // We can cycle if we have alternatives and haven't reached the end yet
+    const currentIndex = url.currentAlternativeIndex || 0;
+    const hasMoreAlternatives = url.alternatives &&
+                               url.alternatives.length > 0 &&
+                               currentIndex < url.alternatives.length;
+
+    // Make INVALID badges clickable if there are alternatives, regardless of current status
+    // This allows cycling through alternatives even after a replacement has been found
+    const originallyInvalid = url.status === 'invalid' ||
+                             url.originalStatusCode === 404 ||
+                             url.originalStatusCode === 403 ||
+                             url.status === 'replacement-found';
+
+    const isClickableInvalid = originallyInvalid && hasMoreAlternatives;
+
+    const clickableClass = isClickableInvalid ? ' clickable' : '';
+    const clickableAttrs = isClickableInvalid ?
+      `data-url-id="${url.id}" title="Click to try next alternative URL (${currentIndex + 1}/${url.alternatives.length} remaining)"` : '';
+
+    return `
+      <span class="status-badge status-${url.status}${clickableClass}" ${clickableAttrs}>
+        ${this.getStatusText(url.status, url.statusCode)}
+      </span>
+    `;
   }
 
   renderActionsCell(url) {
@@ -676,6 +768,54 @@ class URLTable {
         this.emit('rejectReplacement', { urlId: url.id });
       });
     }
+
+    // Re-process button events
+    const reprocessBtn = row.querySelector('.reprocess-btn');
+    if (reprocessBtn) {
+      reprocessBtn.addEventListener('click', () => {
+        this.emit('reprocessURL', { urlId: url.id });
+      });
+    }
+
+    // Clickable invalid status badge events
+    const clickableStatusBadge = row.querySelector('.status-badge.clickable');
+    if (clickableStatusBadge) {
+      clickableStatusBadge.addEventListener('click', () => {
+        this.emit('reprocessURL', { urlId: url.id });
+      });
+    }
+
+    // Open URL button events
+    const openUrlBtn = row.querySelector('.open-url-btn');
+    if (openUrlBtn) {
+      openUrlBtn.addEventListener('click', () => {
+        const urlInput = row.querySelector('.url-input-field');
+        if (urlInput && urlInput.value.trim()) {
+          const url = urlInput.value.trim();
+          // Validate URL format before opening
+          try {
+            new URL(url);
+            window.open(url, '_blank', 'noopener,noreferrer');
+          } catch (error) {
+            // Show a brief error indication
+            openUrlBtn.style.backgroundColor = '#ff4444';
+            openUrlBtn.title = 'Invalid URL format';
+            setTimeout(() => {
+              openUrlBtn.style.backgroundColor = '';
+              openUrlBtn.title = 'Open URL in new tab';
+            }, 2000);
+          }
+        } else {
+          // Show a brief indication that no URL is available
+          openUrlBtn.style.backgroundColor = '#ffaa00';
+          openUrlBtn.title = 'No URL to open';
+          setTimeout(() => {
+            openUrlBtn.style.backgroundColor = '';
+            openUrlBtn.title = 'Open URL in new tab';
+          }, 2000);
+        }
+      });
+    }
   }
 
   getStatusText(status, statusCode) {
@@ -686,10 +826,33 @@ class URLTable {
       'redirect': `Redirect (${statusCode})`,
       'error': 'Error',
       'fixed': 'Fixed',
-      'replacement-found': 'Replacement Found'
+      'replacement-found': 'Replacement Found',
+      'replacement-invalid': 'Replacement Invalid'
     };
-    
+
     return statusMap[status] || status;
+  }
+
+  /**
+   * Get tooltip text for validation indicator
+   */
+  getValidationTooltip(url) {
+    if (!url.replacementValidationStatus) {
+      return '';
+    }
+
+    switch (url.replacementValidationStatus) {
+      case 'valid':
+        return 'Replacement URL validated successfully';
+      case 'invalid':
+        return url.replacementValidationError || 'Replacement URL validation failed';
+      case 'validating':
+        return 'Validating replacement URL...';
+      case 'error':
+        return url.replacementValidationError || 'Validation error occurred';
+      default:
+        return '';
+    }
   }
 
   truncateUrl(url, maxLength = 50) {

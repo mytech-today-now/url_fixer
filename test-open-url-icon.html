@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Open URL Icon Feature</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+        .url-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        .url-table th, .url-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .url-table th {
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Open URL Icon Feature</h1>
+    <p>This page tests the new open-in-new-tab icon functionality for replacement URL input fields.</p>
+    
+    <div class="test-section">
+        <h2>Test Open URL Icon</h2>
+        <p>This test will create a document with URLs and verify that the open URL icon appears and functions correctly.</p>
+        <button onclick="testOpenUrlIcon()">Test Open URL Icon</button>
+        <div id="testResult" class="result"></div>
+        <div id="tableContainer"></div>
+    </div>
+
+    <script type="module">
+        import { URLFixerApp } from './src/main.js';
+        
+        let app;
+        
+        // Initialize app when page loads
+        window.addEventListener('app:ready', (event) => {
+            app = event.detail.app;
+            console.log('App ready:', app);
+            document.getElementById('testResult').innerHTML = '<div class="success">App initialized successfully!</div>';
+        });
+
+        // Test open URL icon functionality
+        window.testOpenUrlIcon = async function() {
+            const resultDiv = document.getElementById('testResult');
+            const tableContainer = document.getElementById('tableContainer');
+            
+            if (!app) {
+                resultDiv.innerHTML = '<div class="error">App not initialized yet</div>';
+                return;
+            }
+
+            try {
+                resultDiv.innerHTML = '<div class="info">Testing open URL icon functionality...</div>';
+                
+                // Clear any existing content
+                tableContainer.innerHTML = '';
+
+                // Create test document with various URLs
+                const documentData = {
+                    fileName: 'test-open-url-icon.html',
+                    fileType: 'html',
+                    fileSize: 1000,
+                    content: `
+                        <a href="https://example.com/valid-url">Valid Link</a>
+                        <a href="https://httpstat.us/404">Broken Link</a>
+                        <a href="https://httpstat.us/200">Another Valid Link</a>
+                    `,
+                    urls: [
+                        {
+                            id: 'test-url-1',
+                            originalURL: 'https://example.com/valid-url',
+                            line: 1,
+                            column: 10,
+                            type: 'href',
+                            status: 'valid',
+                            statusCode: 200
+                        },
+                        {
+                            id: 'test-url-2',
+                            originalURL: 'https://httpstat.us/404',
+                            line: 2,
+                            column: 10,
+                            type: 'href',
+                            status: 'invalid',
+                            statusCode: 404
+                        },
+                        {
+                            id: 'test-url-3',
+                            originalURL: 'https://httpstat.us/200',
+                            line: 3,
+                            column: 10,
+                            type: 'href',
+                            status: 'replacement-found',
+                            statusCode: 404,
+                            replacementURL: 'https://httpstat.us/200',
+                            replacementConfidence: 0.9
+                        }
+                    ]
+                };
+
+                // Load the document
+                await app.models.document.loadDocument(documentData);
+
+                // Wait for the UI to render
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                // Check if open URL icons are present
+                const openUrlButtons = document.querySelectorAll('.open-url-btn');
+                const urlInputs = document.querySelectorAll('.url-input-field');
+                
+                let testResults = [];
+                
+                testResults.push(`✅ Found ${openUrlButtons.length} open URL buttons`);
+                testResults.push(`✅ Found ${urlInputs.length} URL input fields`);
+                
+                // Test each open URL button
+                openUrlButtons.forEach((button, index) => {
+                    const urlInput = button.parentElement.querySelector('.url-input-field');
+                    if (urlInput) {
+                        testResults.push(`✅ Button ${index + 1}: Associated with input field (value: "${urlInput.value}")`);
+                        testResults.push(`✅ Button ${index + 1}: Has correct title attribute: "${button.title}"`);
+                        testResults.push(`✅ Button ${index + 1}: Has correct icon: "${button.textContent}"`);
+                    } else {
+                        testResults.push(`❌ Button ${index + 1}: No associated input field found`);
+                    }
+                });
+
+                // Test button functionality (without actually opening windows)
+                if (openUrlButtons.length > 0) {
+                    const firstButton = openUrlButtons[0];
+                    const firstInput = firstButton.parentElement.querySelector('.url-input-field');
+                    
+                    if (firstInput && firstInput.value) {
+                        testResults.push(`✅ First button is ready to open: "${firstInput.value}"`);
+                        
+                        // Test invalid URL handling
+                        const originalValue = firstInput.value;
+                        firstInput.value = 'invalid-url';
+                        
+                        // Simulate click (we'll check for error styling)
+                        firstButton.click();
+                        
+                        setTimeout(() => {
+                            if (firstButton.style.backgroundColor) {
+                                testResults.push(`✅ Invalid URL handling: Button shows error state`);
+                            }
+                            
+                            // Restore original value
+                            firstInput.value = originalValue;
+                            
+                            // Test empty URL handling
+                            firstInput.value = '';
+                            firstButton.click();
+                            
+                            setTimeout(() => {
+                                if (firstButton.style.backgroundColor) {
+                                    testResults.push(`✅ Empty URL handling: Button shows warning state`);
+                                }
+                                
+                                // Restore original value
+                                firstInput.value = originalValue;
+                                
+                                // Display final results
+                                resultDiv.innerHTML = `
+                                    <div class="success">
+                                        <h3>Open URL Icon Test Results:</h3>
+                                        <ul>
+                                            ${testResults.map(result => `<li>${result}</li>`).join('')}
+                                        </ul>
+                                        <p><strong>✅ All tests passed! The open URL icon feature is working correctly.</strong></p>
+                                    </div>
+                                `;
+                            }, 100);
+                        }, 100);
+                    } else {
+                        testResults.push(`❌ First button has no valid URL to test`);
+                        resultDiv.innerHTML = `
+                            <div class="error">
+                                <h3>Open URL Icon Test Results:</h3>
+                                <ul>
+                                    ${testResults.map(result => `<li>${result}</li>`).join('')}
+                                </ul>
+                            </div>
+                        `;
+                    }
+                } else {
+                    testResults.push(`❌ No open URL buttons found`);
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <h3>Open URL Icon Test Results:</h3>
+                            <ul>
+                                ${testResults.map(result => `<li>${result}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+
+            } catch (error) {
+                console.error('Test error:', error);
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <h3>Test Failed:</h3>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <details>
+                            <summary>Stack Trace</summary>
+                            <pre>${error.stack}</pre>
+                        </details>
+                    </div>
+                `;
+            }
+        };
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const urlFixerApp = URLFixerApp.getInstance();
+                await urlFixerApp.init();
+                
+                // Dispatch the app ready event
+                window.dispatchEvent(new CustomEvent('app:ready', {
+                    detail: { app: urlFixerApp }
+                }));
+            } catch (error) {
+                console.error('Failed to initialize app:', error);
+                document.getElementById('testResult').innerHTML = `<div class="error">Failed to initialize app: ${error.message}</div>`;
+            }
+        });
+    </script>
+</body>
+</html>

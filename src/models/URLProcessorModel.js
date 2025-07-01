@@ -252,11 +252,18 @@ export class URLProcessorModel {
             processedUrl.validated = replacement.validated;
             processedUrl.replacementValidated = replacement.validated;
 
+            // Transfer alternatives for cycling functionality
+            if (replacement.alternatives && replacement.alternatives.length > 0) {
+              processedUrl.alternatives = replacement.alternatives;
+              processedUrl.totalAlternatives = replacement.totalAlternatives;
+              processedUrl.currentAlternativeIndex = replacement.currentAlternativeIndex || 0;
+            }
+
             if (this.config.autoFix) {
               processedUrl.newURL = replacement.replacementURL;
             }
 
-            this.logger.info(`Replacement found for ${validationResult.status} error ${url.originalURL}: ${replacement.replacementURL}`);
+            this.logger.info(`Replacement found for ${validationResult.status} error ${url.originalURL}: ${replacement.replacementURL}${replacement.alternatives ? ` (${replacement.alternatives.length} alternatives available)` : ''}`);
           } else {
             this.logger.warn(`No replacement found for ${validationResult.status} error: ${url.originalURL}`);
           }
@@ -297,7 +304,7 @@ export class URLProcessorModel {
         statusCode,
         signal
       });
-      
+
       if (replacement) {
         // Validate the replacement URL
         const validationResult = await this.validationService.validateURL(replacement.replacementURL, {
@@ -305,25 +312,207 @@ export class URLProcessorModel {
           useCache: this.config.useCache,
           signal
         });
-        
+
         if (this.validationService.isSuccessStatus(validationResult.status)) {
-          return {
+          const validatedReplacement = {
             ...replacement,
             validated: true,
             validationStatus: validationResult.status,
             validationTime: validationResult.responseTime
           };
+
+          // Also validate alternatives if they exist (but don't block on failures)
+          if (replacement.alternatives && replacement.alternatives.length > 0) {
+            this.logger.debug(`Validating ${replacement.alternatives.length} alternative URLs in background`);
+
+            // Validate alternatives in parallel without blocking the main result
+            Promise.all(
+              replacement.alternatives.map(async (alt, index) => {
+                try {
+                  const altValidationResult = await this.validationService.validateURL(alt.replacementURL, {
+                    timeout: this.config.timeout,
+                    useCache: this.config.useCache,
+                    signal
+                  });
+
+                  return {
+                    ...alt,
+                    validated: this.validationService.isSuccessStatus(altValidationResult.status),
+                    validationStatus: altValidationResult.status,
+                    validationTime: altValidationResult.responseTime
+                  };
+                } catch (error) {
+                  this.logger.warn(`Failed to validate alternative ${index + 1}: ${alt.replacementURL}`, error);
+                  return {
+                    ...alt,
+                    validated: false,
+                    validationError: error.message
+                  };
+                }
+              })
+            ).then(validatedAlternatives => {
+              // Update the alternatives with validation results
+              validatedReplacement.alternatives = validatedAlternatives;
+              this.logger.debug(`Completed validation of ${validatedAlternatives.length} alternatives`);
+            }).catch(error => {
+              this.logger.warn('Failed to validate some alternatives', error);
+            });
+          }
+
+          return validatedReplacement;
         } else {
           this.logger.warn(`Replacement URL validation failed: ${replacement.replacementURL} (${validationResult.status})`);
           return null;
         }
       }
-      
+
       return null;
-      
+
     } catch (error) {
       this.logger.error(`Replacement search failed for ${originalURL}`, error);
       throw error;
+    }
+  }
+
+  /**
+   * Validate a replacement URL after it has been selected
+   * This includes HTTP validation and keyword scraping validation
+   */
+  async validateReplacementURL(originalURL, replacementURL, options = {}) {
+    const { signal } = options;
+
+    try {
+      this.logger.info(`Validating replacement URL: ${replacementURL} for original: ${originalURL}`);
+
+      // Step 1: HTTP validation
+      const validationResult = await this.validationService.validateURL(replacementURL, {
+        timeout: this.config.timeout,
+        useCache: false, // Don't use cache for replacement validation to ensure fresh results
+        signal
+      });
+
+      const result = {
+        originalURL,
+        replacementURL,
+        httpValidation: {
+          status: validationResult.status,
+          statusText: validationResult.statusText,
+          responseTime: validationResult.responseTime,
+          headers: validationResult.headers,
+          timestamp: validationResult.timestamp,
+          isValid: this.validationService.isSuccessStatus(validationResult.status)
+        },
+        keywordValidation: null,
+        overallValid: false,
+        validatedAt: new Date().toISOString()
+      };
+
+      // Step 2: If HTTP validation passes, perform keyword scraping validation
+      if (result.httpValidation.isValid) {
+        try {
+          this.logger.debug(`HTTP validation passed for ${replacementURL}, performing keyword validation`);
+
+          // Use the search service to validate keywords/content relevance
+          const originalUrlInfo = this.searchService.parseURL(originalURL);
+          const searchTerms = this.extractSearchTermsFromURL(originalURL);
+
+          const keywordValidation = await this.searchService.validateReplacementURL(
+            replacementURL,
+            originalUrlInfo,
+            searchTerms
+          );
+
+          result.keywordValidation = {
+            isValid: keywordValidation.valid,
+            reason: keywordValidation.reason,
+            confidence: keywordValidation.score || 0,
+            domainRelevance: keywordValidation.domainRelevance,
+            contentRelevance: keywordValidation.contentRelevance,
+            accessibilityResult: keywordValidation.accessibilityResult
+          };
+
+          // Overall validation passes if both HTTP and keyword validation pass
+          result.overallValid = result.httpValidation.isValid && result.keywordValidation.isValid;
+
+          this.logger.info(`Replacement validation complete for ${replacementURL}: HTTP=${result.httpValidation.isValid}, Keywords=${result.keywordValidation.isValid}, Overall=${result.overallValid}`);
+
+        } catch (keywordError) {
+          this.logger.warn(`Keyword validation failed for ${replacementURL}`, keywordError);
+          result.keywordValidation = {
+            isValid: false,
+            reason: `Keyword validation error: ${keywordError.message}`,
+            confidence: 0
+          };
+          // If keyword validation fails, we still consider it valid if HTTP validation passed
+          result.overallValid = result.httpValidation.isValid;
+        }
+      } else {
+        this.logger.warn(`HTTP validation failed for replacement URL ${replacementURL}: ${validationResult.status} ${validationResult.statusText}`);
+        result.overallValid = false;
+      }
+
+      return result;
+
+    } catch (error) {
+      this.logger.error(`Failed to validate replacement URL ${replacementURL}`, error);
+      return {
+        originalURL,
+        replacementURL,
+        httpValidation: {
+          status: 0,
+          statusText: error.message,
+          responseTime: 0,
+          headers: {},
+          timestamp: new Date().toISOString(),
+          isValid: false
+        },
+        keywordValidation: {
+          isValid: false,
+          reason: `Validation error: ${error.message}`,
+          confidence: 0
+        },
+        overallValid: false,
+        validatedAt: new Date().toISOString(),
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Extract search terms from a URL for keyword validation
+   */
+  extractSearchTermsFromURL(url) {
+    try {
+      const urlObj = new URL(url);
+      const pathParts = urlObj.pathname.split('/').filter(part => part.length > 0);
+      const searchTerms = [];
+
+      // Extract terms from path segments
+      pathParts.forEach(part => {
+        // Split on common separators and extract meaningful terms
+        const terms = part.split(/[-_.]/).filter(term =>
+          term.length > 2 &&
+          !/^\d+$/.test(term) && // Exclude pure numbers
+          !/^(html?|php|asp|jsp|cfm)$/i.test(term) // Exclude file extensions
+        );
+        searchTerms.push(...terms);
+      });
+
+      // Extract terms from query parameters
+      urlObj.searchParams.forEach((value, key) => {
+        if (key.length > 2 && value.length > 2) {
+          searchTerms.push(key, value);
+        }
+      });
+
+      // Extract terms from domain (excluding TLD)
+      const domainParts = urlObj.hostname.split('.').slice(0, -1);
+      searchTerms.push(...domainParts.filter(part => part.length > 2));
+
+      return [...new Set(searchTerms)]; // Remove duplicates
+    } catch (error) {
+      this.logger.warn(`Failed to extract search terms from URL ${url}`, error);
+      return [];
     }
   }
 

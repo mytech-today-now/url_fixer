@@ -9,9 +9,9 @@ import { Logger } from '../utils/Logger.js';
 import { ErrorHandler } from '../utils/ErrorHandler.js';
 
 export class AppController {
-  constructor(models, views, services) {
-    this.logger = new Logger('AppController');
-    this.errorHandler = new ErrorHandler();
+  constructor(models, views, services, logger = null, errorHandler = null) {
+    this.logger = logger || new Logger('AppController');
+    this.errorHandler = errorHandler || new ErrorHandler();
 
     // Dependencies
     this.models = models;
@@ -95,7 +95,10 @@ export class AppController {
       this.views.app.showProgress(false);
       this.views.app.updateProcessingControls(true, true); // Enable download
       this.models.document.saveProcessingHistory();
-      
+
+      // Populate replacement text fields for all processed URLs
+      this.populateReplacementFields();
+
       this.views.app.showNotification('URL processing completed!', 'success');
     });
 
@@ -156,15 +159,25 @@ export class AppController {
     });
 
     // URL table events
-    this.views.app.on('urlEdited', (data) => {
+    this.views.app.on('urlEdited', async (data) => {
+      // Update the URL with the new value
       this.models.document.updateURL(data.urlId, { newURL: data.newURL });
+
+      // If a new URL was provided, validate it
+      if (data.newURL && data.newURL.trim()) {
+        await this.validateReplacementURL(data.urlId, data.newURL.trim());
+      }
     });
 
-    this.views.app.on('urlAcceptReplacement', (data) => {
+    this.views.app.on('urlAcceptReplacement', async (data) => {
+      // Update the URL status to fixed
       this.models.document.updateURL(data.urlId, {
         newURL: data.replacementURL,
         status: 'fixed'
       });
+
+      // Validate the accepted replacement URL
+      await this.validateReplacementURL(data.urlId, data.replacementURL);
     });
 
     this.views.app.on('urlRejectReplacement', (data) => {
@@ -172,6 +185,14 @@ export class AppController {
         replacementFound: false,
         replacementURL: null
       });
+    });
+
+    this.views.app.on('reprocessURL', async (data) => {
+      try {
+        await this.handleReprocessURL(data.urlId);
+      } catch (error) {
+        this.errorHandler.handleError(error, 'URL re-processing failed');
+      }
     });
   }
 
@@ -236,14 +257,14 @@ export class AppController {
    */
   async handleProcessURLs() {
     const pendingUrls = this.models.document.getPendingURLs();
-    
+
     if (pendingUrls.length === 0) {
       this.views.app.showNotification('No URLs to process', 'info');
       return;
     }
 
     this.logger.info(`Processing ${pendingUrls.length} URLs`);
-    
+
     try {
       await this.models.urlProcessor.processURLs(pendingUrls);
     } catch (error) {
@@ -252,6 +273,116 @@ export class AppController {
         return;
       }
       throw error;
+    }
+  }
+
+  /**
+   * Populate replacement text fields after processing
+   */
+  populateReplacementFields() {
+    const urls = this.models.document.urls;
+
+    urls.forEach(url => {
+      // Skip URLs that already have manual replacements (newURL)
+      if (url.newURL) {
+        return;
+      }
+
+      // For URLs that have been processed, trigger a table update to populate replacement fields
+      if (url.status && url.status !== 'pending') {
+        // Update the URL in the view to trigger re-rendering with populated fields
+        this.views.app.updateURLInTable(url.id, url);
+      }
+    });
+
+    this.logger.info('Replacement text fields populated after processing');
+  }
+
+  /**
+   * Validate a replacement URL after it has been selected or entered
+   */
+  async validateReplacementURL(urlId, replacementURL) {
+    try {
+      // Find the original URL data
+      const urlData = this.models.document.urls.find(url => url.id === urlId);
+      if (!urlData) {
+        this.logger.warn(`URL with ID ${urlId} not found for replacement validation`);
+        return;
+      }
+
+      this.logger.info(`Starting replacement validation for URL ${urlId}: ${urlData.originalURL} -> ${replacementURL}`);
+
+      // Update UI to show validation in progress
+      this.models.document.updateURL(urlId, {
+        replacementValidating: true,
+        replacementValidationStatus: 'validating'
+      });
+      this.views.app.updateURLInTable(urlId, this.models.document.urls.find(url => url.id === urlId));
+
+      // Perform the validation
+      const validationResult = await this.models.urlProcessor.validateReplacementURL(
+        urlData.originalURL,
+        replacementURL,
+        { signal: this.abortController?.signal }
+      );
+
+      // Update the URL with validation results
+      const updateData = {
+        replacementValidating: false,
+        replacementValidationStatus: validationResult.overallValid ? 'valid' : 'invalid',
+        replacementValidationResult: validationResult,
+        lastValidated: validationResult.validatedAt
+      };
+
+      // If validation failed, update status accordingly
+      if (!validationResult.overallValid) {
+        updateData.status = 'replacement-invalid';
+
+        // Provide user-friendly error message
+        let errorMessage = 'Replacement URL validation failed';
+        if (!validationResult.httpValidation.isValid) {
+          errorMessage = `HTTP Error: ${validationResult.httpValidation.status} ${validationResult.httpValidation.statusText}`;
+        } else if (validationResult.keywordValidation && !validationResult.keywordValidation.isValid) {
+          errorMessage = `Content validation failed: ${validationResult.keywordValidation.reason}`;
+        }
+        updateData.replacementValidationError = errorMessage;
+      } else {
+        // If validation passed, ensure status reflects this
+        if (urlData.status === 'replacement-invalid' || urlData.status === 'invalid') {
+          updateData.status = 'fixed';
+        }
+      }
+
+      this.models.document.updateURL(urlId, updateData);
+      this.views.app.updateURLInTable(urlId, this.models.document.urls.find(url => url.id === urlId));
+
+      this.logger.info(`Replacement validation completed for URL ${urlId}: ${validationResult.overallValid ? 'VALID' : 'INVALID'}`);
+
+      // Show user notification for validation result
+      if (!validationResult.overallValid) {
+        this.errorHandler.showToast(
+          `Replacement URL validation failed: ${updateData.replacementValidationError}`,
+          'warning'
+        );
+      } else {
+        this.errorHandler.showToast(
+          'Replacement URL validated successfully',
+          'success'
+        );
+      }
+
+    } catch (error) {
+      this.logger.error(`Failed to validate replacement URL for ${urlId}`, error);
+
+      // Update UI to show validation error
+      this.models.document.updateURL(urlId, {
+        replacementValidating: false,
+        replacementValidationStatus: 'error',
+        replacementValidationError: error.message
+      });
+      this.views.app.updateURLInTable(urlId, this.models.document.urls.find(url => url.id === urlId));
+
+      this.errorHandler.handleError(error, 'Replacement URL validation failed');
     }
   }
 
@@ -342,6 +473,50 @@ export class AppController {
     const extension = originalName.split('.').pop();
     
     return `${nameWithoutExt}_fixed_${timestamp}.${extension}`;
+  }
+
+  /**
+   * Handle URL re-processing to get next alternative
+   */
+  async handleReprocessURL(urlId) {
+    this.logger.info(`Re-processing URL: ${urlId}`);
+
+    const url = this.models.document.getURL(urlId);
+    if (!url) {
+      throw new Error(`URL not found: ${urlId}`);
+    }
+
+    // Get the next alternative URL from the search service
+    const nextAlternative = this.services.search.getNextAlternativeURL(url);
+
+    if (!nextAlternative) {
+      this.views.app.showNotification('No more alternatives available', 'info');
+      return;
+    }
+
+    // Update the URL with the next alternative
+    this.models.document.updateURL(urlId, {
+      replacementURL: nextAlternative.replacementURL,
+      replacementConfidence: nextAlternative.confidence,
+      replacementSource: nextAlternative.source,
+      currentAlternativeIndex: nextAlternative.currentAlternativeIndex,
+      alternatives: nextAlternative.alternatives,
+      totalAlternatives: nextAlternative.totalAlternatives,
+      // Reset validation status for the new alternative
+      replacementValidationStatus: null,
+      replacementValidating: false,
+      replacementValidationError: null
+    });
+
+    this.views.app.showNotification(
+      `Switched to alternative ${nextAlternative.currentAlternativeIndex + 1}/${nextAlternative.alternatives.length}`,
+      'success'
+    );
+
+    this.logger.info(`Updated URL ${urlId} with alternative: ${nextAlternative.replacementURL}`);
+
+    // Automatically validate the new alternative URL
+    await this.validateReplacementURL(urlId, nextAlternative.replacementURL);
   }
 
   /**

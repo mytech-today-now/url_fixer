@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Search Service</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .result { margin: 10px 0; padding: 10px; background: #f5f5f5; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e9; color: #2e7d32; }
+        button { padding: 10px 20px; margin: 5px; }
+        input { width: 400px; padding: 5px; margin: 5px; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Test Search Service</h1>
+    
+    <div class="test-section">
+        <h2>Test Proxy Search</h2>
+        <input type="text" id="proxyQuery" placeholder="Enter search query" value="site:example.com test">
+        <button onclick="testProxySearch()">Test Proxy Search</button>
+        <div id="proxyResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Search Service</h2>
+        <input type="text" id="searchQuery" placeholder="Enter search query" value="site:example.com test">
+        <button onclick="testSearchService()">Test Search Service</button>
+        <div id="searchServiceResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test URL Replacement</h2>
+        <input type="url" id="replacementUrl" placeholder="Enter URL to find replacement for" value="https://example.com/old-page">
+        <button onclick="testUrlReplacement()">Test URL Replacement</button>
+        <div id="replacementResult" class="result"></div>
+    </div>
+
+    <script type="module">
+        import { SearchService } from './src/services/SearchService.js';
+        
+        let searchService;
+        
+        // Initialize search service
+        document.addEventListener('DOMContentLoaded', () => {
+            searchService = new SearchService();
+            console.log('Search service initialized:', searchService);
+        });
+
+        // Test proxy search directly
+        window.testProxySearch = async function() {
+            const query = document.getElementById('proxyQuery').value;
+            const resultDiv = document.getElementById('proxyResult');
+            
+            try {
+                resultDiv.innerHTML = '<div>Testing proxy search...</div>';
+                
+                const url = `http://localhost:3001/search?q=${encodeURIComponent(query)}`;
+                console.log('Proxy URL:', url);
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                console.log('Proxy response:', data);
+                
+                resultDiv.innerHTML = `
+                    <div class="success">
+                        <h3>Proxy Search Result:</h3>
+                        <p><strong>Query:</strong> ${query}</p>
+                        <p><strong>Response Time:</strong> ${data.responseTime}ms</p>
+                        <details>
+                            <summary>Full Response</summary>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </details>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Proxy search error:', error);
+                resultDiv.innerHTML = `<div class="error">Proxy Error: ${error.message}</div>`;
+            }
+        };
+
+        // Test search service
+        window.testSearchService = async function() {
+            const query = document.getElementById('searchQuery').value;
+            const resultDiv = document.getElementById('searchServiceResult');
+            
+            if (!searchService) {
+                resultDiv.innerHTML = '<div class="error">Search service not initialized</div>';
+                return;
+            }
+            
+            try {
+                resultDiv.innerHTML = '<div>Testing search service...</div>';
+                
+                console.log('Testing search service with query:', query);
+                
+                const results = await searchService.performSearch(query, 5, 15000);
+                
+                console.log('Search service results:', results);
+                
+                if (results && results.length > 0) {
+                    let resultHtml = `
+                        <div class="success">
+                            <h3>Search Service Results (${results.length}):</h3>
+                    `;
+                    
+                    results.forEach((result, index) => {
+                        resultHtml += `
+                            <div style="margin: 10px 0; padding: 10px; border: 1px solid #ddd;">
+                                <p><strong>Result ${index + 1}:</strong></p>
+                                <p><strong>URL:</strong> <a href="${result.url}" target="_blank">${result.url}</a></p>
+                                <p><strong>Title:</strong> ${result.title}</p>
+                                <p><strong>Snippet:</strong> ${result.snippet}</p>
+                                <p><strong>Source:</strong> ${result.source}</p>
+                            </div>
+                        `;
+                    });
+                    
+                    resultHtml += '</div>';
+                    resultDiv.innerHTML = resultHtml;
+                } else {
+                    resultDiv.innerHTML = '<div class="error">No results found</div>';
+                }
+                
+            } catch (error) {
+                console.error('Search service error:', error);
+                resultDiv.innerHTML = `<div class="error">Search Service Error: ${error.message}</div>`;
+            }
+        };
+
+        // Test URL replacement
+        window.testUrlReplacement = async function() {
+            const url = document.getElementById('replacementUrl').value;
+            const resultDiv = document.getElementById('replacementResult');
+            
+            if (!searchService) {
+                resultDiv.innerHTML = '<div class="error">Search service not initialized</div>';
+                return;
+            }
+            
+            try {
+                resultDiv.innerHTML = '<div>Testing URL replacement...</div>';
+                
+                console.log('Testing URL replacement for:', url);
+                
+                const replacement = await searchService.findReplacementURL(url, {
+                    statusCode: 404,
+                    timeout: 15000
+                });
+                
+                console.log('Replacement result:', replacement);
+                
+                if (replacement) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <h3>Replacement Found:</h3>
+                            <p><strong>Original URL:</strong> ${replacement.originalURL}</p>
+                            <p><strong>Replacement URL:</strong> <a href="${replacement.replacementURL}" target="_blank">${replacement.replacementURL}</a></p>
+                            <p><strong>Confidence:</strong> ${replacement.confidence}</p>
+                            <p><strong>Source:</strong> ${replacement.source}</p>
+                            <p><strong>Search Query:</strong> ${replacement.searchQuery}</p>
+                            <details>
+                                <summary>Full Result</summary>
+                                <pre>${JSON.stringify(replacement, null, 2)}</pre>
+                            </details>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = '<div class="error">No replacement found</div>';
+                }
+                
+            } catch (error) {
+                console.error('URL replacement error:', error);
+                resultDiv.innerHTML = `<div class="error">Replacement Error: ${error.message}</div>`;
+            }
+        };
+    </script>
+</body>
+</html>

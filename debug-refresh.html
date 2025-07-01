@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Refresh URL Control</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 3px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .warning { background: #fff3cd; color: #856404; }
+        
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 3px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 3px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        
+        .reprocess-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2rem;
+            height: 2rem;
+            padding: 0;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            background: #f8f9fa;
+            color: #6c757d;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin: 0 5px;
+        }
+        
+        .reprocess-btn:hover {
+            background: #f59e0b;
+            color: white;
+            border-color: #f59e0b;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .status-badge.status-invalid {
+            background: rgba(220, 53, 69, 0.1);
+            color: #dc3545;
+        }
+        
+        .status-badge.clickable {
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+        
+        .status-badge.status-invalid.clickable:hover {
+            background: rgba(220, 53, 69, 0.2);
+            color: #dc3545;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .test-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        
+        .test-table th, .test-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        .test-table th {
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <h1>Debug Refresh URL Control</h1>
+    <p>This page tests the refresh/reprocess functionality to identify why it's not working.</p>
+    
+    <div class="test-section">
+        <h2>Test 1: Basic App Initialization</h2>
+        <button onclick="testAppInit()">Test App Initialization</button>
+        <div id="initResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Create Test URL with Alternatives</h2>
+        <button onclick="createTestURL()">Create Test URL</button>
+        <div id="createResult" class="result"></div>
+        <div id="urlDebugInfo" class="debug-info"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Test Reprocess Button Click</h2>
+        <button onclick="testReprocessButton()">Test Reprocess Button</button>
+        <div id="reprocessResult" class="result"></div>
+        <div id="reprocessDebugInfo" class="debug-info"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 4: Test Invalid Status Badge Click</h2>
+        <button onclick="testInvalidBadgeClick()">Test Invalid Badge Click</button>
+        <div id="badgeResult" class="result"></div>
+        <div id="badgeDebugInfo" class="debug-info"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 5: Manual Event Emission Test</h2>
+        <button onclick="testManualEventEmission()">Test Manual Event Emission</button>
+        <div id="manualResult" class="result"></div>
+        <div id="manualDebugInfo" class="debug-info"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Live URL Table</h2>
+        <div id="table-container"></div>
+    </div>
+
+    <script type="module">
+        import { URLFixerApp } from './src/main.js';
+        
+        let app;
+        let testUrlId = 'debug-test-url';
+        
+        // Initialize app when page loads
+        window.addEventListener('app:ready', (event) => {
+            app = event.detail.app;
+            console.log('App ready for debugging:', app);
+            document.getElementById('initResult').innerHTML = '<div class="success">App initialized successfully!</div>';
+        });
+
+        // Test 1: App Initialization
+        window.testAppInit = async function() {
+            const resultDiv = document.getElementById('initResult');
+            
+            try {
+                if (!app) {
+                    app = URLFixerApp.getInstance();
+                    await app.init();
+                }
+                
+                resultDiv.innerHTML = `<div class="success">✅ App initialized successfully!
+                Controllers: ${Object.keys(app.controllers).join(', ')}
+                Models: ${Object.keys(app.models).join(', ')}
+                Views: ${Object.keys(app.views).join(', ')}
+                Services: ${Object.keys(app.services).join(', ')}</div>`;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ App initialization failed: ${error.message}</div>`;
+                console.error('App init error:', error);
+            }
+        };
+
+        // Test 2: Create Test URL
+        window.createTestURL = async function() {
+            const resultDiv = document.getElementById('createResult');
+            const debugDiv = document.getElementById('urlDebugInfo');
+            
+            if (!app) {
+                resultDiv.innerHTML = '<div class="error">App not initialized</div>';
+                return;
+            }
+            
+            try {
+                // Create a test URL with alternatives
+                const testURL = {
+                    id: testUrlId,
+                    originalURL: 'https://example.com/broken-link',
+                    status: 'replacement-found',
+                    statusCode: 404,
+                    originalStatusCode: 404,
+                    replacementURL: 'https://example.com/alternative-1',
+                    replacementConfidence: 0.8,
+                    alternatives: [
+                        {
+                            replacementURL: 'https://example.com/alternative-2',
+                            confidence: 0.7,
+                            source: 'enhanced-serp'
+                        },
+                        {
+                            replacementURL: 'https://example.com/alternative-3',
+                            confidence: 0.6,
+                            source: 'enhanced-serp'
+                        }
+                    ],
+                    totalAlternatives: 2,
+                    currentAlternativeIndex: 0,
+                    line: 1,
+                    type: 'link',
+                    fileName: 'broken-link'
+                };
+                
+                // Add URL to document model
+                app.models.document.urls = [testURL];
+                
+                // Display in table
+                app.views.app.displayDocument(null, [testURL]);
+                
+                resultDiv.innerHTML = '<div class="success">✅ Test URL created and displayed</div>';
+                debugDiv.textContent = `Test URL Data:\n${JSON.stringify(testURL, null, 2)}`;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Failed to create test URL: ${error.message}</div>`;
+                console.error('Create test URL error:', error);
+            }
+        };
+
+        // Test 3: Test Reprocess Button
+        window.testReprocessButton = async function() {
+            const resultDiv = document.getElementById('reprocessResult');
+            const debugDiv = document.getElementById('reprocessDebugInfo');
+            
+            if (!app) {
+                resultDiv.innerHTML = '<div class="error">App not initialized</div>';
+                return;
+            }
+            
+            try {
+                // Find the reprocess button
+                const tableContainer = document.getElementById('table-container');
+                const reprocessBtn = tableContainer?.querySelector('.reprocess-btn');
+                
+                debugDiv.textContent = `Searching for reprocess button...
+Table container: ${!!tableContainer}
+Reprocess button: ${!!reprocessBtn}`;
+                
+                if (!reprocessBtn) {
+                    resultDiv.innerHTML = '<div class="error">❌ Reprocess button not found</div>';
+                    
+                    // Debug: Check what buttons exist
+                    const allButtons = tableContainer?.querySelectorAll('button');
+                    debugDiv.textContent += `\nAll buttons found: ${allButtons?.length || 0}`;
+                    if (allButtons) {
+                        allButtons.forEach((btn, i) => {
+                            debugDiv.textContent += `\nButton ${i}: class="${btn.className}", text="${btn.textContent}"`;
+                        });
+                    }
+                    return;
+                }
+                
+                // Get initial URL state
+                const initialUrl = app.models.document.getURL(testUrlId);
+                const initialReplacementURL = initialUrl?.replacementURL;
+                
+                debugDiv.textContent += `\nInitial replacement URL: ${initialReplacementURL}`;
+                
+                // Click the button
+                console.log('Clicking reprocess button...');
+                reprocessBtn.click();
+                
+                // Wait for processing
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Check if URL changed
+                const updatedUrl = app.models.document.getURL(testUrlId);
+                const newReplacementURL = updatedUrl?.replacementURL;
+                
+                debugDiv.textContent += `\nNew replacement URL: ${newReplacementURL}
+URL changed: ${newReplacementURL !== initialReplacementURL}`;
+                
+                if (newReplacementURL !== initialReplacementURL) {
+                    resultDiv.innerHTML = '<div class="success">✅ Reprocess button worked!</div>';
+                } else {
+                    resultDiv.innerHTML = '<div class="error">❌ Reprocess button did not change URL</div>';
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Reprocess test failed: ${error.message}</div>`;
+                debugDiv.textContent += `\nError: ${error.message}\nStack: ${error.stack}`;
+                console.error('Reprocess test error:', error);
+            }
+        };
+
+        // Test 4: Test Invalid Badge Click
+        window.testInvalidBadgeClick = async function() {
+            const resultDiv = document.getElementById('badgeResult');
+            const debugDiv = document.getElementById('badgeDebugInfo');
+            
+            if (!app) {
+                resultDiv.innerHTML = '<div class="error">App not initialized</div>';
+                return;
+            }
+            
+            try {
+                // Find the clickable invalid badge
+                const tableContainer = document.getElementById('table-container');
+                const invalidBadge = tableContainer?.querySelector('.status-badge.clickable');
+                
+                debugDiv.textContent = `Searching for clickable invalid badge...
+Table container: ${!!tableContainer}
+Invalid badge: ${!!invalidBadge}`;
+                
+                if (!invalidBadge) {
+                    resultDiv.innerHTML = '<div class="error">❌ Clickable invalid badge not found</div>';
+                    
+                    // Debug: Check what badges exist
+                    const allBadges = tableContainer?.querySelectorAll('.status-badge');
+                    debugDiv.textContent += `\nAll badges found: ${allBadges?.length || 0}`;
+                    if (allBadges) {
+                        allBadges.forEach((badge, i) => {
+                            debugDiv.textContent += `\nBadge ${i}: class="${badge.className}", text="${badge.textContent}"`;
+                        });
+                    }
+                    return;
+                }
+                
+                // Get initial URL state
+                const initialUrl = app.models.document.getURL(testUrlId);
+                const initialReplacementURL = initialUrl?.replacementURL;
+                
+                debugDiv.textContent += `\nInitial replacement URL: ${initialReplacementURL}`;
+                
+                // Click the badge
+                console.log('Clicking invalid badge...');
+                invalidBadge.click();
+                
+                // Wait for processing
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Check if URL changed
+                const updatedUrl = app.models.document.getURL(testUrlId);
+                const newReplacementURL = updatedUrl?.replacementURL;
+                
+                debugDiv.textContent += `\nNew replacement URL: ${newReplacementURL}
+URL changed: ${newReplacementURL !== initialReplacementURL}`;
+                
+                if (newReplacementURL !== initialReplacementURL) {
+                    resultDiv.innerHTML = '<div class="success">✅ Invalid badge click worked!</div>';
+                } else {
+                    resultDiv.innerHTML = '<div class="error">❌ Invalid badge click did not change URL</div>';
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Invalid badge test failed: ${error.message}</div>`;
+                debugDiv.textContent += `\nError: ${error.message}\nStack: ${error.stack}`;
+                console.error('Invalid badge test error:', error);
+            }
+        };
+
+        // Test 5: Manual Event Emission
+        window.testManualEventEmission = async function() {
+            const resultDiv = document.getElementById('manualResult');
+            const debugDiv = document.getElementById('manualDebugInfo');
+            
+            if (!app) {
+                resultDiv.innerHTML = '<div class="error">App not initialized</div>';
+                return;
+            }
+            
+            try {
+                // Get initial URL state
+                const initialUrl = app.models.document.getURL(testUrlId);
+                const initialReplacementURL = initialUrl?.replacementURL;
+                
+                debugDiv.textContent = `Testing manual event emission...
+Initial replacement URL: ${initialReplacementURL}`;
+                
+                // Manually emit the reprocessURL event
+                console.log('Manually emitting reprocessURL event...');
+                app.views.app.emit('reprocessURL', { urlId: testUrlId });
+                
+                // Wait for processing
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Check if URL changed
+                const updatedUrl = app.models.document.getURL(testUrlId);
+                const newReplacementURL = updatedUrl?.replacementURL;
+                
+                debugDiv.textContent += `\nNew replacement URL: ${newReplacementURL}
+URL changed: ${newReplacementURL !== initialReplacementURL}`;
+                
+                if (newReplacementURL !== initialReplacementURL) {
+                    resultDiv.innerHTML = '<div class="success">✅ Manual event emission worked!</div>';
+                } else {
+                    resultDiv.innerHTML = '<div class="error">❌ Manual event emission did not change URL</div>';
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Manual event test failed: ${error.message}</div>`;
+                debugDiv.textContent += `\nError: ${error.message}\nStack: ${error.stack}`;
+                console.error('Manual event test error:', error);
+            }
+        };
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                app = URLFixerApp.getInstance();
+                await app.init();
+                console.log('URL Fixer app initialized for debugging');
+            } catch (error) {
+                console.error('Failed to initialize app:', error);
+                document.getElementById('initResult').innerHTML = 
+                    `<div class="error">Failed to initialize URL Fixer application: ${error.message}</div>`;
+            }
+        });
+    </script>
+</body>
+</html>

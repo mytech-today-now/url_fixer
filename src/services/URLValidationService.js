@@ -100,6 +100,59 @@ export class URLValidationService {
   }
 
   /**
+   * Validate URL using Chrome Headless proxy
+   */
+  async validateURLViaHeadless(url, timeout) {
+    const startTime = Date.now();
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout + 5000);
+
+      const proxyUrl = `${this.proxyServerUrl}/validate-url-headless?url=${encodeURIComponent(url)}&timeout=${timeout}`;
+      const response = await fetch(proxyUrl, {
+        method: 'GET',
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Headless proxy server error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const responseTime = Date.now() - startTime;
+
+      const result = {
+        url: data.finalUrl || data.url,
+        status: data.status,
+        statusText: data.statusText,
+        responseTime,
+        headers: data.headers || {},
+        fromCache: false,
+        timestamp: new Date().toISOString(),
+        method: 'HEADLESS',
+        title: data.title,
+        redirected: data.redirected || false
+      };
+
+      // Add error information if present
+      if (data.error) {
+        result.error = data.error;
+        result.errorType = data.errorType;
+      }
+
+      this.logger.debug(`Headless validation completed for ${url}: ${data.status} (${responseTime}ms)`);
+      return result;
+
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      throw new Error(`Headless validation failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Validate a single URL
    */
   async validateURL(url, options = {}) {
@@ -277,14 +330,30 @@ export class URLValidationService {
         // Check if proxy is available
         const proxyAvailable = await this.checkProxyAvailability();
         if (proxyAvailable) {
-          const result = await this.validateURLViaProxy(url, timeout);
-          this.logger.info(`✅ Proxy fallback successful for ${url} (status: ${result.status})`);
-          return result;
+          // First try regular proxy
+          try {
+            const result = await this.validateURLViaProxy(url, timeout);
+            this.logger.info(`✅ Proxy fallback successful for ${url} (status: ${result.status})`);
+            return result;
+          } catch (proxyError) {
+            this.logger.warn(`❌ Regular proxy failed for ${url}:`, proxyError.message);
+
+            // If regular proxy fails, try Chrome Headless as final fallback
+            try {
+              this.logger.info(`🔄 Attempting Chrome Headless fallback for ${url}...`);
+              const headlessResult = await this.validateURLViaHeadless(url, timeout);
+              this.logger.info(`✅ Chrome Headless fallback successful for ${url} (status: ${headlessResult.status})`);
+              return headlessResult;
+            } catch (headlessError) {
+              this.logger.warn(`❌ Chrome Headless fallback failed for ${url}:`, headlessError.message);
+              throw proxyError; // Throw the original proxy error
+            }
+          }
         } else {
           this.logger.warn('❌ Proxy server not available for fallback');
         }
       } catch (proxyError) {
-        this.logger.warn(`❌ Proxy fallback failed for ${url}:`, proxyError.message);
+        this.logger.warn(`❌ All proxy fallbacks failed for ${url}:`, proxyError.message);
         // Continue to throw the original error
       }
     }

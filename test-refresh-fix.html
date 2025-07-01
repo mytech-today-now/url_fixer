@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Refresh Fix</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 3px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 3px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 3px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Refresh Fix</h1>
+    <p>This page tests the fixed refresh/reprocess functionality.</p>
+    
+    <div class="test-section">
+        <h2>Test: Create URL with Alternatives and Test Refresh</h2>
+        <button onclick="runTest()">Run Test</button>
+        <div id="testResult" class="result"></div>
+        <div id="debugInfo" class="debug-info"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Live URL Table</h2>
+        <div id="table-container"></div>
+    </div>
+
+    <script type="module">
+        import { URLFixerApp } from './src/main.js';
+        
+        let app;
+        let testUrlId = 'test-refresh-fix';
+        
+        // Initialize app when page loads
+        window.addEventListener('app:ready', (event) => {
+            app = event.detail.app;
+            console.log('App ready for testing refresh fix:', app);
+        });
+
+        window.runTest = async function() {
+            const resultDiv = document.getElementById('testResult');
+            const debugDiv = document.getElementById('debugInfo');
+            
+            if (!app) {
+                resultDiv.innerHTML = '<div class="error">App not initialized</div>';
+                return;
+            }
+            
+            try {
+                resultDiv.innerHTML = '<div class="info">Running refresh fix test...</div>';
+                
+                // Step 1: Create a test URL with alternatives
+                const testURL = {
+                    id: testUrlId,
+                    originalURL: 'https://example.com/broken-link',
+                    status: 'replacement-found',
+                    statusCode: 404,
+                    originalStatusCode: 404,
+                    replacementURL: 'https://example.com/alternative-1',
+                    replacementConfidence: 0.8,
+                    alternatives: [
+                        {
+                            replacementURL: 'https://example.com/alternative-2',
+                            confidence: 0.7,
+                            source: 'enhanced-serp'
+                        },
+                        {
+                            replacementURL: 'https://example.com/alternative-3',
+                            confidence: 0.6,
+                            source: 'enhanced-serp'
+                        }
+                    ],
+                    totalAlternatives: 2,
+                    currentAlternativeIndex: 0,
+                    line: 1,
+                    type: 'link',
+                    fileName: 'broken-link'
+                };
+                
+                debugDiv.textContent = `Step 1: Created test URL with ${testURL.alternatives.length} alternatives\n`;
+                
+                // Step 2: Add URL to document model and display
+                app.models.document.urls = [testURL];
+                app.views.app.displayDocument(null, [testURL]);
+                
+                // Wait for UI to render
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
+                // Step 3: Check if reprocess button is visible
+                const tableContainer = document.getElementById('table-container');
+                const reprocessBtn = tableContainer?.querySelector('.reprocess-btn');
+                const invalidBadge = tableContainer?.querySelector('.status-badge.clickable');
+                
+                debugDiv.textContent += `Step 2: UI rendered\n`;
+                debugDiv.textContent += `Reprocess button found: ${!!reprocessBtn}\n`;
+                debugDiv.textContent += `Clickable invalid badge found: ${!!invalidBadge}\n`;
+                
+                if (!reprocessBtn) {
+                    resultDiv.innerHTML = '<div class="error">❌ FAILED: Reprocess button not found</div>';
+                    return;
+                }
+                
+                if (!invalidBadge) {
+                    resultDiv.innerHTML = '<div class="error">❌ FAILED: Clickable invalid badge not found</div>';
+                    return;
+                }
+                
+                // Step 4: Test reprocess button click
+                const initialUrl = app.models.document.getURL(testUrlId);
+                const initialReplacementURL = initialUrl.replacementURL;
+                
+                debugDiv.textContent += `Step 3: Initial replacement URL: ${initialReplacementURL}\n`;
+                
+                // Click the reprocess button
+                reprocessBtn.click();
+                
+                // Wait for processing
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Check if URL changed
+                const updatedUrl = app.models.document.getURL(testUrlId);
+                const newReplacementURL = updatedUrl.replacementURL;
+                
+                debugDiv.textContent += `Step 4: After reprocess button click\n`;
+                debugDiv.textContent += `New replacement URL: ${newReplacementURL}\n`;
+                debugDiv.textContent += `URL changed: ${newReplacementURL !== initialReplacementURL}\n`;
+                
+                if (newReplacementURL !== initialReplacementURL) {
+                    debugDiv.textContent += `✅ Reprocess button test PASSED\n`;
+                    
+                    // Step 5: Test invalid badge click
+                    const secondInitialURL = newReplacementURL;
+                    
+                    // Click the invalid badge
+                    invalidBadge.click();
+                    
+                    // Wait for processing
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    // Check if URL changed again
+                    const finalUrl = app.models.document.getURL(testUrlId);
+                    const finalReplacementURL = finalUrl.replacementURL;
+                    
+                    debugDiv.textContent += `Step 5: After invalid badge click\n`;
+                    debugDiv.textContent += `Final replacement URL: ${finalReplacementURL}\n`;
+                    debugDiv.textContent += `URL changed again: ${finalReplacementURL !== secondInitialURL}\n`;
+                    
+                    if (finalReplacementURL !== secondInitialURL) {
+                        resultDiv.innerHTML = '<div class="success">✅ SUCCESS: Both reprocess button and invalid badge work correctly!</div>';
+                        debugDiv.textContent += `✅ Invalid badge test PASSED\n`;
+                        debugDiv.textContent += `\nFinal test results:\n`;
+                        debugDiv.textContent += `- Initial URL: ${initialReplacementURL}\n`;
+                        debugDiv.textContent += `- After reprocess: ${newReplacementURL}\n`;
+                        debugDiv.textContent += `- After invalid badge: ${finalReplacementURL}\n`;
+                        debugDiv.textContent += `- Current alternative index: ${finalUrl.currentAlternativeIndex}\n`;
+                    } else {
+                        resultDiv.innerHTML = '<div class="error">❌ PARTIAL SUCCESS: Reprocess button works but invalid badge does not</div>';
+                    }
+                } else {
+                    resultDiv.innerHTML = '<div class="error">❌ FAILED: Reprocess button did not change URL</div>';
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Test failed with error: ${error.message}</div>`;
+                debugDiv.textContent += `\nError: ${error.message}\nStack: ${error.stack}`;
+                console.error('Test error:', error);
+            }
+        };
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                app = URLFixerApp.getInstance();
+                await app.init();
+                console.log('URL Fixer app initialized for refresh fix testing');
+            } catch (error) {
+                console.error('Failed to initialize app:', error);
+                document.getElementById('testResult').innerHTML = 
+                    `<div class="error">Failed to initialize URL Fixer application: ${error.message}</div>`;
+            }
+        });
+    </script>
+</body>
+</html>

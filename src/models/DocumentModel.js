@@ -187,6 +187,13 @@ export class DocumentModel {
   }
 
   /**
+   * Get a single URL by ID
+   */
+  getURL(urlId) {
+    return this.urls.find(url => url.id === urlId);
+  }
+
+  /**
    * Get URLs by status
    */
   getURLsByStatus(status) {

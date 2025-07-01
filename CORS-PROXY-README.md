@@ -1,8 +1,18 @@
-# CORS Proxy Server for URL Validation
+# CORS Proxy Server with Chrome Headless for URL Validation
 
 ## Overview
 
-The URL Fixer application includes a CORS proxy server to handle URL validation requests that would otherwise be blocked by browser CORS policies. This proxy server allows the application to validate external URLs without being restricted by cross-origin policies.
+The URL Fixer application includes an enhanced CORS proxy server with Chrome Headless support to handle URL validation and web scraping requests that would otherwise be blocked by browser CORS policies. This proxy server allows the application to validate external URLs, perform web searches, and scrape content without being restricted by cross-origin policies.
+
+## 🚀 Chrome Headless Features
+
+The proxy server now includes Chrome Headless functionality that provides:
+
+- **CORS-free URL validation** with JavaScript rendering support
+- **Enhanced web search** across Google, Bing, and DuckDuckGo
+- **Content scraping** with text, links, and image extraction
+- **Screenshot capture** for visual verification
+- **Automatic browser management** with resource optimization
 
 ## How It Works
 
@@ -62,6 +72,59 @@ Content-Type: application/json
   "timeout": 10000,
   "concurrency": 5
 }
+```
+
+### Chrome Headless URL Validation (Enhanced)
+```
+GET http://localhost:3001/validate-url-headless?url=<url>&timeout=<ms>&screenshot=<true|false>&waitForSelector=<selector>
+```
+Validates a URL using Chrome Headless with JavaScript rendering support.
+
+**Parameters:**
+- `url` (required): The URL to validate
+- `timeout` (optional): Request timeout in milliseconds (default: 30000)
+- `screenshot` (optional): Capture a screenshot of the page (default: false)
+- `waitForSelector` (optional): CSS selector to wait for before considering page loaded
+
+**Example:**
+```
+GET http://localhost:3001/validate-url-headless?url=https://example.com&screenshot=true&timeout=30000
+```
+
+### Chrome Headless Web Search (Enhanced)
+```
+GET http://localhost:3001/web-search-headless?q=<query>&maxResults=<number>&engine=<google|bing|duckduckgo>&timeout=<ms>
+```
+Performs web search using Chrome Headless for better result extraction.
+
+**Parameters:**
+- `q` (required): Search query
+- `maxResults` (optional): Maximum number of results (default: 5)
+- `engine` (optional): Search engine to use (default: duckduckgo)
+- `timeout` (optional): Request timeout in milliseconds (default: 30000)
+
+**Example:**
+```
+GET http://localhost:3001/web-search-headless?q=site:example.com+test&maxResults=5&engine=google
+```
+
+### Chrome Headless Content Scraping
+```
+GET http://localhost:3001/scrape-content?url=<url>&extractText=<true|false>&extractLinks=<true|false>&extractImages=<true|false>&timeout=<ms>&waitForSelector=<selector>
+```
+Scrapes content from a webpage using Chrome Headless.
+
+**Parameters:**
+- `url` (required): The URL to scrape
+- `extractText` (optional): Extract text content (default: true)
+- `extractLinks` (optional): Extract all links (default: false)
+- `extractImages` (optional): Extract all images (default: false)
+- `timeout` (optional): Request timeout in milliseconds (default: 30000)
+- `waitForSelector` (optional): CSS selector to wait for before scraping
+
+**Example:**
+```
+GET http://localhost:3001/scrape-content?url=https://example.com&extractText=true&extractLinks=true
 ```
 
 ## Configuration

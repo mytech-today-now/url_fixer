@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Event Handling</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 3px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 3px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover { background: #0056b3; }
+        
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 3px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Debug Event Handling</h1>
+    <p>This page debugs the event handling for reprocess functionality.</p>
+    
+    <div class="test-section">
+        <h2>Test: Event Handling Debug</h2>
+        <button onclick="runEventTest()">Run Event Test</button>
+        <div id="testResult" class="result"></div>
+        <div id="debugInfo" class="debug-info"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Live URL Table</h2>
+        <div id="table-container"></div>
+    </div>
+
+    <script type="module">
+        import { URLFixerApp } from './src/main.js';
+        
+        let app;
+        let testUrlId = 'debug-event-test';
+        let debugLog = [];
+        
+        function addDebugLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            debugLog.push(`[${timestamp}] ${message}`);
+            document.getElementById('debugInfo').textContent = debugLog.join('\n');
+            console.log(`[DEBUG] ${message}`);
+        }
+        
+        // Initialize app when page loads
+        window.addEventListener('app:ready', (event) => {
+            app = event.detail.app;
+            addDebugLog('App ready for event debugging');
+            
+            // Add event listener to monitor reprocessURL events
+            app.views.app.on('reprocessURL', (data) => {
+                addDebugLog(`reprocessURL event received: ${JSON.stringify(data)}`);
+            });
+        });
+
+        window.runEventTest = async function() {
+            const resultDiv = document.getElementById('testResult');
+            debugLog = []; // Clear previous logs
+            
+            if (!app) {
+                resultDiv.innerHTML = '<div class="error">App not initialized</div>';
+                return;
+            }
+            
+            try {
+                addDebugLog('Starting event handling test...');
+                
+                // Step 1: Create a test URL with alternatives
+                const testURL = {
+                    id: testUrlId,
+                    originalURL: 'https://example.com/broken-link',
+                    status: 'replacement-found',
+                    statusCode: 404,
+                    originalStatusCode: 404,
+                    replacementURL: 'https://example.com/alternative-1',
+                    replacementConfidence: 0.8,
+                    alternatives: [
+                        {
+                            replacementURL: 'https://example.com/alternative-2',
+                            confidence: 0.7,
+                            source: 'enhanced-serp'
+                        },
+                        {
+                            replacementURL: 'https://example.com/alternative-3',
+                            confidence: 0.6,
+                            source: 'enhanced-serp'
+                        }
+                    ],
+                    totalAlternatives: 2,
+                    currentAlternativeIndex: 0,
+                    line: 1,
+                    type: 'link',
+                    fileName: 'broken-link'
+                };
+                
+                addDebugLog(`Created test URL with ${testURL.alternatives.length} alternatives`);
+                
+                // Step 2: Add URL to document model and display
+                app.models.document.urls = [testURL];
+                app.views.app.displayDocument(null, [testURL]);
+                
+                addDebugLog('URL added to document and displayed');
+                
+                // Wait for UI to render
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
+                // Step 3: Check UI elements
+                const tableContainer = document.getElementById('table-container');
+                const reprocessBtn = tableContainer?.querySelector('.reprocess-btn');
+                const invalidBadge = tableContainer?.querySelector('.status-badge.clickable');
+                
+                addDebugLog(`UI elements check:`);
+                addDebugLog(`- Table container: ${!!tableContainer}`);
+                addDebugLog(`- Reprocess button: ${!!reprocessBtn}`);
+                addDebugLog(`- Clickable badge: ${!!invalidBadge}`);
+                
+                if (reprocessBtn) {
+                    addDebugLog(`- Reprocess button data-url-id: ${reprocessBtn.getAttribute('data-url-id')}`);
+                    addDebugLog(`- Reprocess button title: ${reprocessBtn.getAttribute('title')}`);
+                }
+                
+                if (invalidBadge) {
+                    addDebugLog(`- Invalid badge data-url-id: ${invalidBadge.getAttribute('data-url-id')}`);
+                    addDebugLog(`- Invalid badge classes: ${invalidBadge.className}`);
+                }
+                
+                // Step 4: Test manual event emission
+                addDebugLog('Testing manual event emission...');
+                const initialUrl = app.models.document.getURL(testUrlId);
+                addDebugLog(`Initial replacement URL: ${initialUrl.replacementURL}`);
+                
+                // Manually emit the event
+                app.views.app.emit('reprocessURL', { urlId: testUrlId });
+                
+                // Wait for processing
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                const afterManualUrl = app.models.document.getURL(testUrlId);
+                addDebugLog(`After manual event - replacement URL: ${afterManualUrl.replacementURL}`);
+                addDebugLog(`Manual event changed URL: ${afterManualUrl.replacementURL !== initialUrl.replacementURL}`);
+                
+                // Step 5: Test button click if available
+                if (reprocessBtn) {
+                    addDebugLog('Testing reprocess button click...');
+                    const beforeClickUrl = app.models.document.getURL(testUrlId);
+                    addDebugLog(`Before click - replacement URL: ${beforeClickUrl.replacementURL}`);
+                    
+                    // Click the button
+                    reprocessBtn.click();
+                    
+                    // Wait for processing
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    const afterClickUrl = app.models.document.getURL(testUrlId);
+                    addDebugLog(`After click - replacement URL: ${afterClickUrl.replacementURL}`);
+                    addDebugLog(`Button click changed URL: ${afterClickUrl.replacementURL !== beforeClickUrl.replacementURL}`);
+                }
+                
+                // Step 6: Test invalid badge click if available
+                if (invalidBadge) {
+                    addDebugLog('Testing invalid badge click...');
+                    const beforeBadgeUrl = app.models.document.getURL(testUrlId);
+                    addDebugLog(`Before badge click - replacement URL: ${beforeBadgeUrl.replacementURL}`);
+                    
+                    // Click the badge
+                    invalidBadge.click();
+                    
+                    // Wait for processing
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    const afterBadgeUrl = app.models.document.getURL(testUrlId);
+                    addDebugLog(`After badge click - replacement URL: ${afterBadgeUrl.replacementURL}`);
+                    addDebugLog(`Badge click changed URL: ${afterBadgeUrl.replacementURL !== beforeBadgeUrl.replacementURL}`);
+                }
+                
+                resultDiv.innerHTML = '<div class="success">✅ Event test completed - check debug log for details</div>';
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">❌ Test failed with error: ${error.message}</div>`;
+                addDebugLog(`ERROR: ${error.message}`);
+                addDebugLog(`Stack: ${error.stack}`);
+                console.error('Test error:', error);
+            }
+        };
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                app = URLFixerApp.getInstance();
+                await app.init();
+                addDebugLog('URL Fixer app initialized for event debugging');
+            } catch (error) {
+                console.error('Failed to initialize app:', error);
+                addDebugLog(`Failed to initialize app: ${error.message}`);
+            }
+        });
+    </script>
+</body>
+</html>

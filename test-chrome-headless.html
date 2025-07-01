@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Chrome Headless Proxy</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 3px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .warning { background: #fff3cd; color: #856404; }
+        
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 3px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 3px;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .test-input {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+        
+        .screenshot {
+            max-width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 Chrome Headless Proxy Test</h1>
+    <p>This page tests the Chrome Headless proxy functionality for CORS-free web scraping.</p>
+    
+    <div class="test-section">
+        <h2>Test 1: Proxy Health Check</h2>
+        <button onclick="testHealth()">Check Proxy Health</button>
+        <div id="healthResult" class="result"></div>
+        <div id="healthDebug" class="debug-info"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Chrome Headless URL Validation</h2>
+        <input type="text" id="urlInput" class="test-input" placeholder="Enter URL to validate" value="https://example.com">
+        <label>
+            <input type="checkbox" id="screenshotCheck"> Take Screenshot
+        </label>
+        <br>
+        <button onclick="testURLValidation()">Validate URL with Chrome Headless</button>
+        <div id="urlResult" class="result"></div>
+        <div id="urlDebug" class="debug-info"></div>
+        <div id="screenshotContainer"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Chrome Headless Web Search</h2>
+        <input type="text" id="searchInput" class="test-input" placeholder="Enter search query" value="site:example.com test">
+        <select id="engineSelect" class="test-input">
+            <option value="duckduckgo">DuckDuckGo</option>
+            <option value="google">Google</option>
+            <option value="bing">Bing</option>
+        </select>
+        <br>
+        <button onclick="testWebSearch()">Search with Chrome Headless</button>
+        <div id="searchResult" class="result"></div>
+        <div id="searchDebug" class="debug-info"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 4: Content Scraping</h2>
+        <input type="text" id="scrapeInput" class="test-input" placeholder="Enter URL to scrape" value="https://example.com">
+        <label>
+            <input type="checkbox" id="extractTextCheck" checked> Extract Text
+        </label>
+        <label>
+            <input type="checkbox" id="extractLinksCheck"> Extract Links
+        </label>
+        <label>
+            <input type="checkbox" id="extractImagesCheck"> Extract Images
+        </label>
+        <br>
+        <button onclick="testContentScraping()">Scrape Content</button>
+        <div id="scrapeResult" class="result"></div>
+        <div id="scrapeDebug" class="debug-info"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 5: Compare Regular vs Headless</h2>
+        <input type="text" id="compareInput" class="test-input" placeholder="Enter URL to compare" value="https://httpbin.org/status/404">
+        <br>
+        <button onclick="testComparison()">Compare Regular vs Headless Validation</button>
+        <div id="compareResult" class="result"></div>
+        <div id="compareDebug" class="debug-info"></div>
+    </div>
+
+    <script>
+        const PROXY_BASE = 'http://localhost:3001';
+        
+        async function testHealth() {
+            const resultDiv = document.getElementById('healthResult');
+            const debugDiv = document.getElementById('healthDebug');
+            
+            try {
+                resultDiv.innerHTML = '<div class="info">Checking proxy health...</div>';
+                
+                const response = await fetch(`${PROXY_BASE}/health`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = '<div class="success">✅ Proxy server is healthy!</div>';
+                    debugDiv.textContent = JSON.stringify(data, null, 2);
+                } else {
+                    resultDiv.innerHTML = '<div class="error">❌ Proxy server health check failed</div>';
+                    debugDiv.textContent = JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="error">❌ Failed to connect to proxy server</div>';
+                debugDiv.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function testURLValidation() {
+            const url = document.getElementById('urlInput').value;
+            const screenshot = document.getElementById('screenshotCheck').checked;
+            const resultDiv = document.getElementById('urlResult');
+            const debugDiv = document.getElementById('urlDebug');
+            const screenshotDiv = document.getElementById('screenshotContainer');
+            
+            if (!url) {
+                resultDiv.innerHTML = '<div class="error">Please enter a URL</div>';
+                return;
+            }
+            
+            try {
+                resultDiv.innerHTML = '<div class="info">Validating URL with Chrome Headless...</div>';
+                screenshotDiv.innerHTML = '';
+                
+                const params = new URLSearchParams({
+                    url: url,
+                    timeout: '30000',
+                    screenshot: screenshot.toString()
+                });
+                
+                const response = await fetch(`${PROXY_BASE}/validate-url-headless?${params}`);
+                const data = await response.json();
+                
+                if (response.ok && data.status >= 200 && data.status < 400) {
+                    resultDiv.innerHTML = `<div class="success">✅ URL is valid! Status: ${data.status} ${data.statusText}</div>`;
+                } else if (data.status === 0) {
+                    resultDiv.innerHTML = `<div class="error">❌ URL validation failed: ${data.error || 'Unknown error'}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="warning">⚠️ URL returned status: ${data.status} ${data.statusText}</div>`;
+                }
+                
+                debugDiv.textContent = JSON.stringify(data, null, 2);
+                
+                // Display screenshot if available
+                if (data.screenshot) {
+                    screenshotDiv.innerHTML = `
+                        <h4>Screenshot:</h4>
+                        <img src="data:image/png;base64,${data.screenshot}" class="screenshot" alt="Page screenshot">
+                    `;
+                }
+                
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="error">❌ URL validation request failed</div>';
+                debugDiv.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function testWebSearch() {
+            const query = document.getElementById('searchInput').value;
+            const engine = document.getElementById('engineSelect').value;
+            const resultDiv = document.getElementById('searchResult');
+            const debugDiv = document.getElementById('searchDebug');
+            
+            if (!query) {
+                resultDiv.innerHTML = '<div class="error">Please enter a search query</div>';
+                return;
+            }
+            
+            try {
+                resultDiv.innerHTML = '<div class="info">Searching with Chrome Headless...</div>';
+                
+                const params = new URLSearchParams({
+                    q: query,
+                    maxResults: '5',
+                    timeout: '30000',
+                    engine: engine
+                });
+                
+                const response = await fetch(`${PROXY_BASE}/web-search-headless?${params}`);
+                const data = await response.json();
+                
+                if (response.ok && data.results && data.results.length > 0) {
+                    resultDiv.innerHTML = `<div class="success">✅ Found ${data.results.length} search results!</div>`;
+                    
+                    let resultsHtml = '<h4>Search Results:</h4><ul>';
+                    data.results.forEach((result, index) => {
+                        resultsHtml += `<li><strong>${result.title}</strong><br>
+                                       <a href="${result.url}" target="_blank">${result.url}</a><br>
+                                       <em>${result.snippet}</em></li>`;
+                    });
+                    resultsHtml += '</ul>';
+                    resultDiv.innerHTML += resultsHtml;
+                } else {
+                    resultDiv.innerHTML = '<div class="warning">⚠️ No search results found</div>';
+                }
+                
+                debugDiv.textContent = JSON.stringify(data, null, 2);
+                
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="error">❌ Search request failed</div>';
+                debugDiv.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function testContentScraping() {
+            const url = document.getElementById('scrapeInput').value;
+            const extractText = document.getElementById('extractTextCheck').checked;
+            const extractLinks = document.getElementById('extractLinksCheck').checked;
+            const extractImages = document.getElementById('extractImagesCheck').checked;
+            const resultDiv = document.getElementById('scrapeResult');
+            const debugDiv = document.getElementById('scrapeDebug');
+            
+            if (!url) {
+                resultDiv.innerHTML = '<div class="error">Please enter a URL</div>';
+                return;
+            }
+            
+            try {
+                resultDiv.innerHTML = '<div class="info">Scraping content with Chrome Headless...</div>';
+                
+                const params = new URLSearchParams({
+                    url: url,
+                    timeout: '30000',
+                    extractText: extractText.toString(),
+                    extractLinks: extractLinks.toString(),
+                    extractImages: extractImages.toString()
+                });
+                
+                const response = await fetch(`${PROXY_BASE}/scrape-content?${params}`);
+                const data = await response.json();
+                
+                if (response.ok && data.status >= 200 && data.status < 400) {
+                    let summary = `✅ Content scraped successfully! Title: "${data.title}"`;
+                    if (data.textLength) summary += ` | Text: ${data.textLength} chars`;
+                    if (data.linkCount) summary += ` | Links: ${data.linkCount}`;
+                    if (data.imageCount) summary += ` | Images: ${data.imageCount}`;
+                    
+                    resultDiv.innerHTML = `<div class="success">${summary}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ Content scraping failed: ${data.error || 'Unknown error'}</div>`;
+                }
+                
+                debugDiv.textContent = JSON.stringify(data, null, 2);
+                
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="error">❌ Content scraping request failed</div>';
+                debugDiv.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        async function testComparison() {
+            const url = document.getElementById('compareInput').value;
+            const resultDiv = document.getElementById('compareResult');
+            const debugDiv = document.getElementById('compareDebug');
+            
+            if (!url) {
+                resultDiv.innerHTML = '<div class="error">Please enter a URL</div>';
+                return;
+            }
+            
+            try {
+                resultDiv.innerHTML = '<div class="info">Comparing regular vs headless validation...</div>';
+                
+                // Test regular validation
+                const regularParams = new URLSearchParams({
+                    url: url,
+                    method: 'HEAD',
+                    timeout: '10000'
+                });
+                
+                const regularPromise = fetch(`${PROXY_BASE}/validate-url?${regularParams}`)
+                    .then(r => r.json())
+                    .catch(e => ({ error: e.message, method: 'REGULAR' }));
+                
+                // Test headless validation
+                const headlessParams = new URLSearchParams({
+                    url: url,
+                    timeout: '30000'
+                });
+                
+                const headlessPromise = fetch(`${PROXY_BASE}/validate-url-headless?${headlessParams}`)
+                    .then(r => r.json())
+                    .catch(e => ({ error: e.message, method: 'HEADLESS' }));
+                
+                const [regularResult, headlessResult] = await Promise.all([regularPromise, headlessPromise]);
+                
+                let comparison = `
+Regular Validation: Status ${regularResult.status || 'Error'} (${regularResult.responseTime || 0}ms)
+Headless Validation: Status ${headlessResult.status || 'Error'} (${headlessResult.responseTime || 0}ms)
+
+Regular Method: ${regularResult.method || 'UNKNOWN'}
+Headless Method: ${headlessResult.method || 'UNKNOWN'}
+                `;
+                
+                if (regularResult.error && !headlessResult.error) {
+                    resultDiv.innerHTML = '<div class="success">✅ Headless validation succeeded where regular failed!</div>';
+                } else if (!regularResult.error && !headlessResult.error) {
+                    resultDiv.innerHTML = '<div class="success">✅ Both methods succeeded</div>';
+                } else if (regularResult.error && headlessResult.error) {
+                    resultDiv.innerHTML = '<div class="error">❌ Both methods failed</div>';
+                } else {
+                    resultDiv.innerHTML = '<div class="warning">⚠️ Mixed results</div>';
+                }
+                
+                debugDiv.textContent = `Comparison Results:\n${comparison}\n\nRegular Result:\n${JSON.stringify(regularResult, null, 2)}\n\nHeadless Result:\n${JSON.stringify(headlessResult, null, 2)}`;
+                
+            } catch (error) {
+                resultDiv.innerHTML = '<div class="error">❌ Comparison test failed</div>';
+                debugDiv.textContent = `Error: ${error.message}`;
+            }
+        }
+
+        // Auto-run health check on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            testHealth();
+        });
+    </script>
+</body>
+</html>

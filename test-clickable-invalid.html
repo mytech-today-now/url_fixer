@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Clickable INVALID Status</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .result {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 300px;
+            margin: 5px;
+        }
+        
+        #table-container {
+            margin-top: 20px;
+            max-height: 400px;
+            overflow: auto;
+            border: 1px solid #ddd;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .status-badge.status-invalid {
+            background: color-mix(in srgb, #dc3545 10%, transparent);
+            color: #dc3545;
+        }
+        
+        .status-badge.status-invalid.clickable {
+            cursor: pointer;
+            transition: all 0.2s ease;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        .status-badge.status-invalid.clickable:hover {
+            background: color-mix(in srgb, #dc3545 20%, transparent);
+            color: #dc3545;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Clickable INVALID Status Feature</h1>
+    <p>This page tests the new clickable INVALID status badge functionality that cycles through SERP alternatives.</p>
+    
+    <div class="test-section">
+        <h2>Test Clickable INVALID Status Badge</h2>
+        <p>This test creates a URL with invalid status and alternatives, then verifies that clicking the INVALID badge cycles through alternatives.</p>
+        <button onclick="testClickableInvalidStatus()">Test Clickable INVALID Status</button>
+        <div id="testResult" class="result"></div>
+        <div id="tableContainer"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Validation Status Display</h2>
+        <p>This test verifies that replacement URLs show proper validation status indicators.</p>
+        <button onclick="testValidationStatusDisplay()">Test Validation Status Display</button>
+        <div id="validationResult" class="result"></div>
+    </div>
+
+    <script type="module">
+        import { URLFixerApp } from './src/main.js';
+        
+        let app;
+        
+        // Initialize app when page loads
+        window.addEventListener('app:ready', (event) => {
+            app = event.detail.app;
+            console.log('App ready:', app);
+            document.getElementById('testResult').innerHTML = '<div class="success">App initialized successfully!</div>';
+        });
+
+        // Test clickable invalid status functionality
+        window.testClickableInvalidStatus = async function() {
+            const resultDiv = document.getElementById('testResult');
+            const tableContainer = document.getElementById('tableContainer');
+
+            if (!app) {
+                resultDiv.innerHTML = '<div class="error">App not initialized yet</div>';
+                return;
+            }
+
+            try {
+                resultDiv.innerHTML = '<div class="info">Testing clickable INVALID status...</div>';
+
+                // Create test document with invalid URL that has alternatives
+                const testDocument = {
+                    fileName: 'test-clickable-invalid.html',
+                    fileType: 'html',
+                    fileSize: 100,
+                    content: '<a href="https://example.com/broken-link">Test Link</a>',
+                    urls: [{
+                        id: 'test-invalid-url',
+                        originalURL: 'https://example.com/broken-link',
+                        line: 1,
+                        column: 9,
+                        type: 'href',
+                        status: 'replacement-found',
+                        statusCode: 404,
+                        originalStatusCode: 404,
+                        replacementURL: 'https://example.com/alternative-1',
+                        replacementConfidence: 0.8,
+                        replacementSource: 'enhanced-serp',
+                        alternatives: [
+                            { replacementURL: 'https://example.com/alternative-2', confidence: 0.7, source: 'serp' },
+                            { replacementURL: 'https://example.com/alternative-3', confidence: 0.6, source: 'serp' }
+                        ],
+                        totalAlternatives: 2,
+                        currentAlternativeIndex: 0
+                    }]
+                };
+
+                // Load the test document
+                await app.models.document.loadDocument(testDocument);
+
+                // Display the document in the table
+                app.views.app.displayDocument(testDocument, testDocument.urls);
+
+                // Wait for UI to render
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+                // Debug: Log the table HTML to see what was rendered
+                const tableElement = document.getElementById('table-container');
+                console.log('Table HTML:', tableElement?.innerHTML);
+
+                // Find the clickable INVALID status badge
+                const clickableStatusBadge = tableElement?.querySelector('.status-badge.clickable');
+                const allStatusBadges = tableElement?.querySelectorAll('.status-badge');
+
+                console.log('All status badges found:', allStatusBadges?.length);
+                console.log('Clickable status badge found:', !!clickableStatusBadge);
+
+                if (allStatusBadges) {
+                    allStatusBadges.forEach((badge, index) => {
+                        console.log(`Badge ${index}:`, badge.className, badge.textContent);
+                    });
+                }
+
+                if (!clickableStatusBadge) {
+                    // Check if there's any status badge at all
+                    const anyStatusBadge = tableElement?.querySelector('.status-badge');
+                    if (anyStatusBadge) {
+                        resultDiv.innerHTML = `<div class="error">❌ Status badge found but not clickable. Classes: ${anyStatusBadge.className}</div>`;
+                    } else {
+                        resultDiv.innerHTML = '<div class="error">❌ No status badge found at all</div>';
+                    }
+                    return;
+                }
+
+                // Get initial replacement URL
+                const initialUrl = app.models.document.getURL('test-invalid-url');
+                const initialReplacementURL = initialUrl.replacementURL;
+
+                console.log('Initial URL data:', initialUrl);
+                console.log('Initial replacement URL:', initialReplacementURL);
+
+                resultDiv.innerHTML = '<div class="info">✅ Found clickable INVALID badge. Testing click...</div>';
+
+                // Click the INVALID status badge
+                clickableStatusBadge.click();
+
+                // Wait for processing
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                // Check if the replacement URL changed
+                const updatedUrl = app.models.document.getURL('test-invalid-url');
+                const newReplacementURL = updatedUrl.replacementURL;
+
+                console.log('Updated URL data:', updatedUrl);
+                console.log('New replacement URL:', newReplacementURL);
+
+                if (newReplacementURL !== initialReplacementURL) {
+                    resultDiv.innerHTML = `<div class="success">✅ SUCCESS: Clicking INVALID badge cycled to next alternative!
+Initial URL: ${initialReplacementURL}
+New URL: ${newReplacementURL}
+Alternative Index: ${updatedUrl.currentAlternativeIndex}</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">❌ FAILED: Replacement URL did not change after clicking INVALID badge
+Initial: ${initialReplacementURL}
+Current: ${newReplacementURL}
+Alternatives: ${JSON.stringify(updatedUrl.alternatives, null, 2)}</div>`;
+                }
+
+            } catch (error) {
+                console.error('Test error:', error);
+                resultDiv.innerHTML = `<div class="error">❌ Test failed: ${error.message}</div>`;
+            }
+        };
+
+        // Test validation status display
+        window.testValidationStatusDisplay = async function() {
+            const resultDiv = document.getElementById('validationResult');
+            
+            if (!app) {
+                resultDiv.innerHTML = '<div class="error">App not initialized yet</div>';
+                return;
+            }
+
+            try {
+                resultDiv.innerHTML = '<div class="info">Testing validation status display...</div>';
+                
+                // Create test document with replacement URL
+                const testDocument = {
+                    fileName: 'test-validation.html',
+                    fileType: 'html',
+                    fileSize: 100,
+                    content: '<a href="https://example.com/broken">Test Link</a>',
+                    urls: [{
+                        id: 'test-validation-url',
+                        originalURL: 'https://example.com/broken',
+                        line: 1,
+                        column: 9,
+                        type: 'href',
+                        status: 'invalid',
+                        statusCode: 404,
+                        replacementURL: 'https://httpstat.us/200',
+                        replacementConfidence: 0.9,
+                        replacementValidationStatus: 'valid',
+                        replacementSource: 'enhanced-serp'
+                    }]
+                };
+
+                // Load the test document
+                await app.models.document.loadDocument(testDocument);
+                
+                // Display the document in the table
+                app.views.app.displayDocument(testDocument, testDocument.urls);
+                
+                // Wait for UI to render
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                // Check for validation indicator
+                const tableElement = document.getElementById('table-container');
+                const validationIndicator = tableElement?.querySelector('.validation-indicator');
+                
+                if (validationIndicator) {
+                    resultDiv.innerHTML = `<div class="success">✅ SUCCESS: Validation indicator found!
+Indicator class: ${validationIndicator.className}
+Indicator text: ${validationIndicator.textContent}
+Title: ${validationIndicator.title}</div>`;
+                } else {
+                    resultDiv.innerHTML = '<div class="error">❌ FAILED: Validation indicator not found</div>';
+                }
+                
+            } catch (error) {
+                console.error('Validation test error:', error);
+                resultDiv.innerHTML = `<div class="error">❌ Test failed: ${error.message}</div>`;
+            }
+        };
+    </script>
+</body>
+</html>

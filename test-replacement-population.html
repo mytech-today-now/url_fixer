@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Replacement Population</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 3px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 3px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover { background: #0056b3; }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+        .url-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        .url-table th, .url-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .url-table th {
+            background: #f8f9fa;
+        }
+        .url-input-field {
+            width: 100%;
+            padding: 4px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+        }
+        .replacement-input {
+            border-color: #007bff;
+            background: #f0f8ff;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Replacement Population Feature</h1>
+    <p>This page tests the new functionality where replacement text fields are populated after processing URLs.</p>
+    
+    <div class="test-section">
+        <h2>Test Document Processing with Mixed URLs</h2>
+        <p>This test will process a document with various types of URLs and verify that replacement fields are populated correctly.</p>
+        <button onclick="testReplacementPopulation()">Test Replacement Population</button>
+        <div id="testResult" class="result"></div>
+        <div id="tableContainer"></div>
+    </div>
+
+    <script type="module">
+        import { URLFixerApp } from './src/main.js';
+        
+        let app;
+        
+        // Initialize app when page loads
+        window.addEventListener('app:ready', (event) => {
+            app = event.detail.app;
+            console.log('App ready:', app);
+            document.getElementById('testResult').innerHTML = '<div class="success">App initialized successfully!</div>';
+        });
+
+        // Test replacement population functionality
+        window.testReplacementPopulation = async function() {
+            const resultDiv = document.getElementById('testResult');
+            const tableContainer = document.getElementById('tableContainer');
+            
+            if (!app) {
+                resultDiv.innerHTML = '<div class="error">App not initialized yet</div>';
+                return;
+            }
+
+            try {
+                resultDiv.innerHTML = '<div class="info">Testing replacement population...</div>';
+
+                // Create a mock document with various types of URLs
+                const documentData = {
+                    fileName: 'test-document.html',
+                    content: `
+                        <html>
+                        <body>
+                            <a href="https://httpstat.us/200">Working Link</a>
+                            <a href="https://httpstat.us/404">Broken Link 1</a>
+                            <a href="https://example.com/nonexistent">Broken Link 2</a>
+                            <a href="https://httpstat.us/403">Forbidden Link</a>
+                        </body>
+                        </html>
+                    `,
+                    urls: [
+                        {
+                            id: 'url-1',
+                            originalURL: 'https://httpstat.us/200',
+                            line: 4,
+                            column: 25,
+                            type: 'href',
+                            status: 'pending'
+                        },
+                        {
+                            id: 'url-2',
+                            originalURL: 'https://httpstat.us/404',
+                            line: 5,
+                            column: 25,
+                            type: 'href',
+                            status: 'pending'
+                        },
+                        {
+                            id: 'url-3',
+                            originalURL: 'https://example.com/nonexistent',
+                            line: 6,
+                            column: 25,
+                            type: 'href',
+                            status: 'pending'
+                        },
+                        {
+                            id: 'url-4',
+                            originalURL: 'https://httpstat.us/403',
+                            line: 7,
+                            column: 25,
+                            type: 'href',
+                            status: 'pending'
+                        }
+                    ]
+                };
+
+                // Load the document
+                await app.models.document.loadDocument(documentData);
+
+                // Show initial table state
+                tableContainer.innerHTML = '<h3>Before Processing:</h3>';
+                showTableState(tableContainer, 'before');
+
+                // Process the URLs
+                resultDiv.innerHTML = '<div class="info">Processing URLs...</div>';
+                await app.controllers.app.handleProcessURLs();
+
+                // Show final table state
+                const afterDiv = document.createElement('div');
+                afterDiv.innerHTML = '<h3>After Processing:</h3>';
+                tableContainer.appendChild(afterDiv);
+                showTableState(tableContainer, 'after');
+
+                // Verify the results
+                const urls = app.models.document.urls;
+                let resultHtml = '<div class="success">Processing completed!</div>';
+                resultHtml += '<h4>Results:</h4><ul>';
+                
+                urls.forEach(url => {
+                    resultHtml += `<li><strong>${url.originalURL}</strong>: Status = ${url.status}`;
+                    if (url.replacementURL) {
+                        resultHtml += `, Replacement = ${url.replacementURL}`;
+                    }
+                    resultHtml += '</li>';
+                });
+                
+                resultHtml += '</ul>';
+                resultDiv.innerHTML = resultHtml;
+
+            } catch (error) {
+                console.error('Error testing replacement population:', error);
+                resultDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        };
+
+        function showTableState(container, phase) {
+            const urls = app.models.document.urls;
+            const table = document.createElement('table');
+            table.className = 'url-table';
+            
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Original URL</th>
+                        <th>Status</th>
+                        <th>Replacement Field Value</th>
+                        <th>Has Replacement URL</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${urls.map(url => `
+                        <tr>
+                            <td>${url.originalURL}</td>
+                            <td>${url.status || 'pending'}</td>
+                            <td>
+                                <input type="url" class="url-input-field ${url.replacementURL ? 'replacement-input' : ''}" 
+                                       value="${getExpectedFieldValue(url)}" readonly>
+                            </td>
+                            <td>${url.replacementURL ? 'Yes' : 'No'}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            `;
+            
+            container.appendChild(table);
+        }
+
+        function getExpectedFieldValue(url) {
+            if (url.newURL) {
+                return url.newURL;
+            } else if (url.replacementURL) {
+                return url.replacementURL;
+            } else {
+                // This is the key logic we're testing
+                const hasBeenProcessed = url.status && url.status !== 'pending';
+                return hasBeenProcessed ? (url.originalURL || '') : '';
+            }
+        }
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                app = URLFixerApp.getInstance();
+                await app.init();
+                console.log('URL Fixer app initialized for testing');
+            } catch (error) {
+                console.error('Failed to initialize app:', error);
+                document.getElementById('testResult').innerHTML = 
+                    `<div class="error">Failed to initialize URL Fixer application: ${error.message}</div>`;
+            }
+        });
+    </script>
+</body>
+</html>

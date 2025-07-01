@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Document with Broken Links</title>
+</head>
+<body>
+    <h1>Test Document</h1>
+    
+    <p>This document contains several broken links for testing the URL replacement functionality:</p>
+    
+    <ul>
+        <li><a href="https://httpstat.us/404">HTTP Status 404 Test</a> - Should be replaced with working endpoint</li>
+        <li><a href="https://example.com/old-page">Old Example Page</a> - Should be replaced with new page</li>
+        <li><a href="https://example.com/nonexistent-page">Nonexistent Page</a> - Should be replaced with existing page</li>
+        <li><a href="https://github.com/user/repo/blob/main/deleted-file.md">Deleted GitHub File</a> - Should be replaced with repo main page</li>
+        <li><a href="https://httpstat.us/200">Working Link</a> - Should remain unchanged</li>
+    </ul>
+    
+    <p>Additional test links:</p>
+    <ul>
+        <li><a href="https://httpstat.us/403">HTTP Status 403 Test</a></li>
+        <li><a href="https://example.com/another-broken-link">Another Broken Link</a></li>
+    </ul>
+    
+    <p>This document is designed to test the URL replacement functionality of the URL Fixer application.</p>
+</body>
+</html>
